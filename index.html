@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gogospace — AI Interior Design</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Playfair Display', 'Georgia', 'serif'],
+          },
+          colors: {
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            primary: {
+              DEFAULT: 'hsl(var(--primary))',
+              foreground: 'hsl(var(--primary-foreground))',
+            },
+            secondary: {
+              DEFAULT: 'hsl(var(--secondary))',
+              foreground: 'hsl(var(--secondary-foreground))',
+            },
+            muted: {
+              DEFAULT: 'hsl(var(--muted))',
+              foreground: 'hsl(var(--muted-foreground))',
+            },
+            accent: {
+              DEFAULT: 'hsl(var(--accent))',
+              foreground: 'hsl(var(--accent-foreground))',
+            },
+            card: {
+              DEFAULT: 'hsl(var(--card))',
+              foreground: 'hsl(var(--card-foreground))',
+            },
+          },
+          borderRadius: {
+            lg: 'var(--radius)',
+            md: 'calc(var(--radius) - 2px)',
+            sm: 'calc(var(--radius) - 4px)',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    :root {
+      --background: 40 33% 98%;
+      --foreground: 24 10% 10%;
+      --card: 0 0% 100%;
+      --card-foreground: 24 10% 10%;
+      --primary: 218 96% 36%;
+      --primary-foreground: 0 0% 100%;
+      --secondary: 218 40% 96%;
+      --secondary-foreground: 24 10% 10%;
+      --muted: 36 15% 93%;
+      --muted-foreground: 24 5% 45%;
+      --accent: 218 96% 36%;
+      --accent-foreground: 0 0% 100%;
+      --border: 30 15% 88%;
+      --input: 30 15% 88%;
+      --ring: 218 96% 36%;
+      --radius: 0.75rem;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { font-size: 18px; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: hsl(var(--background));
+      color: hsl(var(--foreground));
+      font-size: 1.125rem;
+      line-height: 1.6;
+    }
+
+    .grain {
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.03;
+      pointer-events: none;
+    }
+
+    .hero-gradient {
+      background: radial-gradient(ellipse 80% 60% at 50% -10%, rgb(4 77 180 / 0.1), transparent),
+                  radial-gradient(ellipse 50% 40% at 90% 20%, rgb(4 77 180 / 0.06), transparent);
+    }
+
+    .upload-btn {
+      background: rgb(4 77 180);
+      color: white;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 14px rgb(4 77 180 / 0.35);
+    }
+    .upload-btn:hover {
+      opacity: 0.92;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgb(4 77 180 / 0.4);
+    }
+
+    .style-card {
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+    .style-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px hsl(24 10% 10% / 0.08);
+    }
+    .style-card.selected {
+      border-color: rgb(4 77 180);
+      box-shadow: 0 0 0 2px rgb(4 77 180 / 0.25);
+    }
+
+    .btn-primary {
+      background: rgb(4 77 180);
+      color: white;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
+
+    .btn-outline {
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--card));
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .btn-outline:hover {
+      background: hsl(var(--muted));
+      border-color: hsl(var(--muted-foreground) / 0.3);
+    }
+
+    .compare-slider {
+      position: relative;
+      overflow: hidden;
+      border-radius: calc(var(--radius) + 4px);
+      box-shadow: 0 20px 60px rgb(4 77 180 / 0.12), 0 4px 16px rgba(0,0,0,0.08);
+      user-select: none;
+      touch-action: none;
+    }
+    .compare-handle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: white;
+      cursor: ew-resize;
+      z-index: 10;
+      transform: translateX(-50%);
+      box-shadow: 0 0 16px rgba(0,0,0,0.25);
+    }
+    .compare-handle::after {
+      content: '◂  ▸';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      border: 3px solid rgb(4 77 180);
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: rgb(4 77 180);
+      font-weight: 700;
+    }
+
+    .gallery-card img {
+      transition: transform 0.4s ease;
+    }
+    .gallery-card:hover img {
+      transform: scale(1.05);
+    }
+
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-up {
+      animation: fade-up 0.6s ease forwards;
+    }
+    .delay-100 { animation-delay: 0.1s; opacity: 0; }
+    .delay-200 { animation-delay: 0.2s; opacity: 0; }
+    .delay-300 { animation-delay: 0.3s; opacity: 0; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">
+      <div class="mx-auto flex h-18 max-w-7xl items-center justify-between px-6 py-3">
+        <a href="#" class="flex items-center gap-2.5">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground text-base font-bold">G</div>
+          <span class="text-xl font-semibold tracking-tight">gogospace</span>
+        </a>
+
+        <nav class="hidden items-center gap-8 md:flex">
+          <a v-for="link in navLinks" :key="link" :href="'#' + link.toLowerCase().replace(' ', '-')"
+             class="text-base text-muted-foreground transition-colors hover:text-foreground">
+            {{ link }}
+          </a>
+        </nav>
+
+        <div class="flex items-center gap-3">
+          <button class="btn-outline hidden rounded-md px-5 py-2.5 text-base font-medium sm:inline-flex">Sign in</button>
+          <button class="btn-primary rounded-md px-5 py-2.5 text-base font-medium">Try for free</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero-gradient relative overflow-hidden pt-20">
+      <div class="grain absolute inset-0"></div>
+      <div class="relative mx-auto max-w-5xl px-6 pb-16 pt-16 text-center lg:pt-24">
+
+        <h1 class="animate-fade-up font-display text-5xl font-semibold leading-tight tracking-tight sm:text-6xl lg:text-7xl">
+          Transform Your Space<br />with AI Design
+        </h1>
+
+        <p class="animate-fade-up delay-100 mx-auto mt-5 max-w-xl text-xl text-muted-foreground sm:text-2xl">
+          Upload a photo, pick a style, and see your room reimagined in seconds.
+        </p>
+
+        <div class="animate-fade-up delay-200 mt-10">
+          <button
+            class="upload-btn inline-flex items-center gap-3 rounded-xl px-10 py-4 text-lg font-semibold"
+            @click="$refs.heroFileInput.click()"
+          >
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            Upload your space
+          </button>
+          <input ref="heroFileInput" type="file" accept="image/*" class="hidden" @change="onFileSelect" />
+        </div>
+
+        <div class="animate-fade-up delay-300 mt-6 flex flex-wrap items-center justify-center gap-6 text-lg text-muted-foreground sm:gap-10">
+          <span class="flex items-center gap-2">
+            <span>⭐</span>
+            <span><strong class="font-semibold text-foreground">4.8</strong> user rating</span>
+          </span>
+          <span class="hidden h-5 w-px bg-border sm:block"></span>
+          <span class="flex items-center gap-2">
+            <span>🏠</span>
+            <span><strong class="font-semibold text-foreground">231+</strong> spaces transformed</span>
+          </span>
+        </div>
+
+        <div class="animate-fade-up delay-300 mx-auto mt-14 max-w-6xl">
+          <div
+            class="compare-slider aspect-[16/10] bg-muted sm:aspect-[16/9]"
+            ref="compareContainer"
+            @mousedown.prevent="onComparePointerDown"
+            @touchstart.prevent="onComparePointerDown"
+          >
+            <img
+              :src="beforeImage"
+              alt="Original room"
+              class="absolute inset-0 h-full w-full object-cover"
+              draggable="false"
+            />
+            <div class="absolute inset-0 overflow-hidden" :style="{ width: comparePosition + '%' }">
+              <img
+                :src="afterImage"
+                alt="AI designed room"
+                class="h-full object-cover"
+                :style="{ width: compareContainerWidth + 'px', maxWidth: 'none' }"
+                draggable="false"
+              />
+            </div>
+            <div
+              class="compare-handle"
+              :style="{ left: comparePosition + '%' }"
+              @mousedown.stop.prevent="startDrag"
+              @touchstart.stop.prevent="startDrag"
+            ></div>
+            <div class="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-black/55 px-4 py-1.5 text-base font-medium text-white backdrop-blur-sm">Original</div>
+            <div class="pointer-events-none absolute bottom-4 right-4 rounded-lg bg-primary px-4 py-1.5 text-base font-medium text-white backdrop-blur-sm">AI Design</div>
+          </div>
+          <p class="mt-4 text-base text-muted-foreground">Drag the handle to compare before &amp; after</p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Main Tool Section -->
+    <section id="try-for-free" class="mx-auto max-w-7xl px-6 pb-24">
+      <div class="mx-auto max-w-3xl">
+        <div class="rounded-xl border border-border bg-card p-8 shadow-sm">
+          <h2 class="text-2xl font-semibold">Choose a style</h2>
+          <p class="mt-2 text-lg text-muted-foreground">Select the interior design aesthetic you love.</p>
+
+          <div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <button
+              v-for="style in designStyles"
+              :key="style.id"
+              class="style-card overflow-hidden rounded-lg border border-border text-left"
+              :class="{ selected: selectedStyle === style.id }"
+              @click="selectedStyle = style.id"
+            >
+              <div class="aspect-[4/3] overflow-hidden">
+                <img :src="style.image" :alt="style.name" class="h-full w-full object-cover" />
+              </div>
+              <div class="p-4">
+                <p class="text-base font-medium">{{ style.name }}</p>
+                <p class="mt-1 text-base text-muted-foreground">{{ style.description }}</p>
+              </div>
+            </button>
+          </div>
+
+          <button
+            class="btn-primary mt-8 w-full rounded-xl py-4 text-lg font-medium"
+            :class="{ 'opacity-50 cursor-not-allowed': !uploadedImage }"
+            :disabled="!uploadedImage"
+          >
+            <span class="flex items-center justify-center gap-2">
+              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+              Generate design
+            </span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works" class="border-y border-border bg-muted/30 py-24">
+      <div class="mx-auto max-w-7xl px-6">
+        <div class="text-center">
+          <h2 class="font-display text-4xl font-semibold">How it works</h2>
+          <p class="mt-4 text-xl text-muted-foreground">Three simple steps to your dream space</p>
+        </div>
+
+        <div class="mt-16 grid gap-8 md:grid-cols-3">
+          <div v-for="(step, i) in steps" :key="step.title" class="relative text-center">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
+              {{ i + 1 }}
+            </div>
+            <h3 class="mt-5 text-xl font-semibold">{{ step.title }}</h3>
+            <p class="mt-3 text-lg text-muted-foreground">{{ step.description }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Gallery -->
+    <section id="gallery" class="py-24">
+      <div class="mx-auto max-w-7xl px-6">
+        <div class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <h2 class="font-display text-4xl font-semibold">Latest design creations</h2>
+            <p class="mt-4 text-xl text-muted-foreground">Explore stunning AI-generated interiors from our community.</p>
+          </div>
+          <button class="btn-outline rounded-md px-5 py-2.5 text-base font-medium">View all</button>
+        </div>
+
+        <div class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div
+            v-for="item in gallery"
+            :key="item.id"
+            class="gallery-card group overflow-hidden rounded-xl border border-border bg-card"
+          >
+            <div class="relative aspect-[4/5] overflow-hidden">
+              <img :src="item.image" :alt="item.style" class="h-full w-full object-cover" />
+              <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
+              <div class="absolute bottom-0 left-0 right-0 translate-y-2 p-4 opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
+                <span class="rounded-full bg-white/20 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-sm">{{ item.style }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Use Cases -->
+    <section id="use-cases" class="border-t border-border bg-muted/30 py-24">
+      <div class="mx-auto max-w-7xl px-6">
+        <div class="text-center">
+          <h2 class="font-display text-4xl font-semibold">Designed for everyone</h2>
+          <p class="mt-4 text-xl text-muted-foreground">Whether you're a homeowner or a professional, gogospace has you covered.</p>
+        </div>
+
+        <div class="mt-16 grid gap-6 md:grid-cols-3">
+          <div v-for="useCase in useCases" :key="useCase.title" class="rounded-xl border border-border bg-card p-8 shadow-sm">
+            <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-secondary text-2xl">
+              {{ useCase.icon }}
+            </div>
+            <h3 class="mt-5 text-xl font-semibold">{{ useCase.title }}</h3>
+            <p class="mt-3 text-lg text-muted-foreground">{{ useCase.description }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="py-24">
+      <div class="mx-auto max-w-3xl px-6 text-center">
+        <h2 class="font-display text-4xl font-semibold sm:text-5xl">Ready to transform your space?</h2>
+        <p class="mt-5 text-xl text-muted-foreground">Join thousands of homeowners and designers creating beautiful interiors with AI.</p>
+        <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <button class="btn-primary rounded-xl px-10 py-4 text-lg font-medium">Get started — it's free</button>
+          <button class="btn-outline rounded-xl px-10 py-4 text-lg font-medium">View pricing</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-border py-12">
+      <div class="mx-auto max-w-7xl px-6">
+        <div class="flex flex-col items-center justify-between gap-6 sm:flex-row">
+          <div class="flex items-center gap-2.5">
+            <div class="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-bold">G</div>
+            <span class="text-lg font-semibold">gogospace</span>
+          </div>
+          <p class="text-base text-muted-foreground">&copy; 2026 gogospace. All rights reserved.</p>
+          <div class="flex gap-6 text-base text-muted-foreground">
+            <a href="#" class="hover:text-foreground">Privacy</a>
+            <a href="#" class="hover:text-foreground">Terms</a>
+            <a href="#" class="hover:text-foreground">Contact</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const { createApp, ref, onMounted, onUnmounted } = Vue;
+
+    createApp({
+      setup() {
+        const navLinks = ['How it works', 'Gallery', 'Use Cases', 'Pricing'];
+        const uploadedImage = ref(null);
+        const selectedStyle = ref('modern');
+        const comparePosition = ref(50);
+        const compareContainer = ref(null);
+        const compareContainerWidth = ref(0);
+        const beforeImage = ref('https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=1200&q=80');
+        const afterImage = ref('https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=1200&q=80');
+        let isDraggingCompare = false;
+
+        const designStyles = [
+          { id: 'modern', name: 'Modern', description: 'Clean lines & minimal', image: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=400&q=80' },
+          { id: 'scandinavian', name: 'Scandinavian', description: 'Light & cozy', image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&q=80' },
+          { id: 'industrial', name: 'Industrial', description: 'Raw & urban', image: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=80' },
+          { id: 'bohemian', name: 'Bohemian', description: 'Eclectic & vibrant', image: 'https://images.unsplash.com/photo-1600607687644-c7171b42498f?w=400&q=80' },
+          { id: 'japandi', name: 'Japandi', description: 'Zen meets Nordic', image: 'https://images.unsplash.com/photo-1600566753190-17f0baa0a6a3?w=400&q=80' },
+          { id: 'luxury', name: 'Luxury', description: 'Elegant & refined', image: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=400&q=80' },
+        ];
+
+        const steps = [
+          { title: 'Upload your photo', description: 'Take a picture of any room — living room, bedroom, kitchen, or office.' },
+          { title: 'Pick your style', description: 'Choose from dozens of curated interior design styles that match your taste.' },
+          { title: 'Get your design', description: 'Our AI generates a photorealistic redesign of your space in seconds.' },
+        ];
+
+        const gallery = [
+          { id: 1, style: 'Modern Minimalist', image: 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=500&q=80' },
+          { id: 2, style: 'Scandinavian', image: 'https://images.unsplash.com/photo-1600210492490-5a5d4a0c0e0a?w=500&q=80' },
+          { id: 3, style: 'Industrial Loft', image: 'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=500&q=80' },
+          { id: 4, style: 'Bohemian', image: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=500&q=80' },
+        ];
+
+        const useCases = [
+          { icon: '🏠', title: 'Homeowners', description: 'Visualize renovations before committing. See how different styles look in your actual space.' },
+          { icon: '🎨', title: 'Interior Designers', description: 'Present concepts to clients faster. Generate multiple style options in minutes, not days.' },
+          { icon: '🏢', title: 'Real Estate', description: 'Virtually stage empty properties to help buyers envision their future home.' },
+        ];
+
+        function onFileSelect(e) {
+          const file = e.target.files[0];
+          if (file) loadImage(file);
+        }
+
+        function loadImage(file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            uploadedImage.value = e.target.result;
+            beforeImage.value = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        }
+
+        function getPointerX(e) {
+          if (e.touches && e.touches.length) return e.touches[0].clientX;
+          if (e.changedTouches && e.changedTouches.length) return e.changedTouches[0].clientX;
+          return e.clientX;
+        }
+
+        function updateComparePosition(clientX) {
+          if (!compareContainer.value) return;
+          const rect = compareContainer.value.getBoundingClientRect();
+          const x = clientX - rect.left;
+          comparePosition.value = Math.min(100, Math.max(0, (x / rect.width) * 100));
+        }
+
+        function startDrag() {
+          isDraggingCompare = true;
+        }
+
+        function onComparePointerDown(e) {
+          isDraggingCompare = true;
+          updateComparePosition(getPointerX(e));
+        }
+
+        function onPointerMove(e) {
+          if (!isDraggingCompare) return;
+          updateComparePosition(getPointerX(e));
+        }
+
+        function onPointerUp() {
+          isDraggingCompare = false;
+        }
+
+        function updateContainerWidth() {
+          if (compareContainer.value) {
+            compareContainerWidth.value = compareContainer.value.offsetWidth;
+          }
+        }
+
+        onMounted(() => {
+          updateContainerWidth();
+          window.addEventListener('resize', updateContainerWidth);
+          window.addEventListener('mousemove', onPointerMove);
+          window.addEventListener('mouseup', onPointerUp);
+          window.addEventListener('touchmove', onPointerMove, { passive: false });
+          window.addEventListener('touchend', onPointerUp);
+        });
+
+        onUnmounted(() => {
+          window.removeEventListener('resize', updateContainerWidth);
+          window.removeEventListener('mousemove', onPointerMove);
+          window.removeEventListener('mouseup', onPointerUp);
+          window.removeEventListener('touchmove', onPointerMove);
+          window.removeEventListener('touchend', onPointerUp);
+        });
+
+        return {
+          navLinks,
+          uploadedImage,
+          selectedStyle,
+          comparePosition,
+          compareContainer,
+          compareContainerWidth,
+          beforeImage,
+          afterImage,
+          designStyles,
+          steps,
+          gallery,
+          useCases,
+          onFileSelect,
+          startDrag,
+          onComparePointerDown,
+        };
+      },
+    }).mount('#app');
+  </script>
+</body>
+</html>
