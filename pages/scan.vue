@@ -11,6 +11,9 @@ const EDGE_THRESHOLD = 115
 const EDGE_ALPHA = 70
 const MAX_PROCESS_WIDTH = 400
 const SCAN_DURATION = 4500
+const SCAN_REDIRECT_DELAY = 600
+
+const router = useRouter()
 
 // Layout placeholder — replace with uploaded image from route/state later
 const uploadedImage = '/images/original.avif'
@@ -111,6 +114,7 @@ function startScan() {
     if (scanProgress.value >= 100 && scanTimer) {
       clearInterval(scanTimer)
       scanTimer = null
+      setTimeout(() => router.push('/unlock'), SCAN_REDIRECT_DELAY)
     }
   }, interval)
 }

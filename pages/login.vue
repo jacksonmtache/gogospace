@@ -57,9 +57,12 @@ useHead({
             <span class="text-sm text-muted-foreground sm:text-base">Remember me</span>
           </label>
 
-          <button type="submit" class="btn-primary w-full rounded-lg px-6 py-3 text-base font-medium">
+          <NuxtLink
+            to="/dashboard"
+            class="btn-primary w-full rounded-lg px-6 py-3 text-center text-base font-medium"
+          >
             Log in
-          </button>
+          </NuxtLink>
         </form>
       </div>
     </div>
