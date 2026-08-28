@@ -42,9 +42,12 @@ function onUploadClick() {
         </nav>
 
         <div class="hidden items-center gap-2 sm:gap-3 md:flex">
-          <button class="btn-outline rounded-md px-3 py-2 text-sm font-medium sm:px-5 sm:py-2.5 sm:text-base">
+          <NuxtLink
+            to="/login"
+            class="btn-outline rounded-md px-3 py-2 text-sm font-medium sm:px-5 sm:py-2.5 sm:text-base"
+          >
             Login
-          </button>
+          </NuxtLink>
           <button
             class="btn-primary rounded-md px-3 py-2 text-sm font-medium sm:px-5 sm:py-2.5 sm:text-base"
             @click="onUploadClick"
@@ -89,7 +92,13 @@ function onUploadClick() {
           </a>
         </nav>
         <div class="flex flex-col gap-2 border-t border-border/60 py-3">
-          <button class="btn-outline w-full rounded-md px-4 py-2.5 text-base font-medium">Login</button>
+          <NuxtLink
+            to="/login"
+            class="btn-outline w-full rounded-md px-4 py-2.5 text-center text-base font-medium"
+            @click="mobileMenuOpen = false"
+          >
+            Login
+          </NuxtLink>
           <button class="btn-primary w-full rounded-md px-4 py-2.5 text-base font-medium" @click="onUploadClick">
             Upload photo
           </button>

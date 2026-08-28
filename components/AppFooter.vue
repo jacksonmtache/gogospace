@@ -12,9 +12,9 @@ const currentYear = new Date().getFullYear()
         </div>
         <p class="text-base text-muted-foreground">&copy; {{ currentYear }} GoGoSpace. All rights reserved.</p>
         <div class="flex gap-6 text-base text-muted-foreground">
-          <a href="#" class="hover:text-foreground">Privacy</a>
-          <a href="#" class="hover:text-foreground">Terms</a>
-          <a href="#" class="hover:text-foreground">Contact</a>
+          <NuxtLink to="/policy" class="hover:text-foreground">Privacy</NuxtLink>
+          <NuxtLink to="/terms" class="hover:text-foreground">Terms</NuxtLink>
+          <NuxtLink to="/contact" class="hover:text-foreground">Contact</NuxtLink>
         </div>
       </div>
     </div>
