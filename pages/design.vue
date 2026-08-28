@@ -112,8 +112,8 @@ const designStyles = [
 
       <!-- Start action -->
       <div class="mt-8 border-t border-border pt-8 sm:mt-10">
-        <button
-          type="button"
+        <NuxtLink
+          to="/scan"
           class="btn-primary mx-auto flex w-full max-w-sm items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 text-base font-semibold sm:py-4 sm:text-lg"
         >
           <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -127,7 +127,7 @@ const designStyles = [
           </svg>
           <span>Start</span>
           <span class="rounded-full bg-white/20 px-2.5 py-0.5 text-sm font-medium">1 coin</span>
-        </button>
+        </NuxtLink>
 
         <p class="mx-auto mt-4 max-w-sm text-center text-sm text-muted-foreground">
           Make sure your space is clearly visible
