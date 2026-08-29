@@ -13,6 +13,10 @@ dist-ssr
 .nuxt
 .output
 *.local
+.env
+.env.*
+!.env.example
+supabase/.temp/
 
 # Editor directories and files
 .vscode/*

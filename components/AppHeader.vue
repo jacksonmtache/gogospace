@@ -2,6 +2,8 @@
 const mobileMenuOpen = ref(false)
 const { navLinks, scrollToSection } = useSiteNavigation()
 const { triggerUpload } = useUploadTrigger()
+const { user, logout } = useAuth()
+const loggingOut = ref(false)
 
 function goToSection(id: string) {
   scrollToSection(id)
@@ -11,6 +13,18 @@ function goToSection(id: string) {
 function onUploadClick() {
   triggerUpload()
   mobileMenuOpen.value = false
+}
+
+async function onLogout() {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  mobileMenuOpen.value = false
+  try {
+    await logout()
+    await navigateTo('/login')
+  } finally {
+    loggingOut.value = false
+  }
 }
 </script>
 
@@ -42,19 +56,37 @@ function onUploadClick() {
         </nav>
 
         <div class="hidden items-center gap-2 sm:gap-3 md:flex">
-          <NuxtLink
-            to="/login"
-            class="btn-outline rounded-md px-3 py-2 text-sm font-medium sm:px-5 sm:py-2.5 sm:text-base"
-          >
-            Login
-          </NuxtLink>
-          <button
-            class="btn-primary rounded-md px-3 py-2 text-sm font-medium sm:px-5 sm:py-2.5 sm:text-base"
-            @click="onUploadClick"
-          >
-            <span class="hidden sm:inline">Upload photo</span>
-            <span class="sm:hidden">Upload</span>
-          </button>
+          <template v-if="user">
+            <NuxtLink
+              to="/dashboard"
+              class="btn-outline rounded-md px-3 py-2 text-sm font-medium sm:px-5 sm:py-2.5 sm:text-base"
+            >
+              Dashboard
+            </NuxtLink>
+            <button
+              type="button"
+              class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:px-4 sm:py-2.5 sm:text-base"
+              :disabled="loggingOut"
+              @click="onLogout"
+            >
+              {{ loggingOut ? 'Signing out…' : 'Log out' }}
+            </button>
+          </template>
+          <template v-else>
+            <NuxtLink
+              to="/login"
+              class="btn-outline rounded-md px-3 py-2 text-sm font-medium sm:px-5 sm:py-2.5 sm:text-base"
+            >
+              Login
+            </NuxtLink>
+            <button
+              class="btn-primary rounded-md px-3 py-2 text-sm font-medium sm:px-5 sm:py-2.5 sm:text-base"
+              @click="onUploadClick"
+            >
+              <span class="hidden sm:inline">Upload photo</span>
+              <span class="sm:hidden">Upload</span>
+            </button>
+          </template>
         </div>
 
         <button
@@ -92,16 +124,35 @@ function onUploadClick() {
           </a>
         </nav>
         <div class="flex flex-col gap-2 border-t border-border/60 py-3">
-          <NuxtLink
-            to="/login"
-            class="btn-outline w-full rounded-md px-4 py-2.5 text-center text-base font-medium"
-            @click="mobileMenuOpen = false"
-          >
-            Login
-          </NuxtLink>
-          <button class="btn-primary w-full rounded-md px-4 py-2.5 text-base font-medium" @click="onUploadClick">
-            Upload photo
-          </button>
+          <template v-if="user">
+            <NuxtLink
+              to="/dashboard"
+              class="btn-outline w-full rounded-md px-4 py-2.5 text-center text-base font-medium"
+              @click="mobileMenuOpen = false"
+            >
+              Dashboard
+            </NuxtLink>
+            <button
+              type="button"
+              class="w-full rounded-md px-4 py-2.5 text-center text-base font-medium text-muted-foreground"
+              :disabled="loggingOut"
+              @click="onLogout"
+            >
+              {{ loggingOut ? 'Signing out…' : 'Log out' }}
+            </button>
+          </template>
+          <template v-else>
+            <NuxtLink
+              to="/login"
+              class="btn-outline w-full rounded-md px-4 py-2.5 text-center text-base font-medium"
+              @click="mobileMenuOpen = false"
+            >
+              Login
+            </NuxtLink>
+            <button class="btn-primary w-full rounded-md px-4 py-2.5 text-base font-medium" @click="onUploadClick">
+              Upload photo
+            </button>
+          </template>
         </div>
       </div>
     </div>

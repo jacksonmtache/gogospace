@@ -1,11 +1,47 @@
 <script setup lang="ts">
 definePageMeta({
   layout: 'default',
+  middleware: 'guest',
 })
 
 useHead({
   title: 'Log in — GoGoSpace',
 })
+
+import { FetchError } from 'ofetch'
+
+const { login } = useAuth()
+
+const email = ref('')
+const password = ref('')
+const rememberMe = ref(false)
+const errorMessage = ref('')
+const pending = ref(false)
+
+function toLoginError(error: unknown) {
+  if (error instanceof FetchError) {
+    return (
+      error.data?.statusMessage ||
+      error.data?.message ||
+      error.statusMessage ||
+      'Invalid email or password'
+    )
+  }
+  return 'Invalid email or password'
+}
+
+async function onSubmit() {
+  errorMessage.value = ''
+  pending.value = true
+  try {
+    await login(email.value, password.value, rememberMe.value)
+    await navigateTo('/dashboard')
+  } catch (error: unknown) {
+    errorMessage.value = toLoginError(error)
+  } finally {
+    pending.value = false
+  }
+}
 </script>
 
 <template>
@@ -21,13 +57,15 @@ useHead({
       </header>
 
       <div class="mt-8 rounded-2xl border border-border bg-card p-6 shadow-sm sm:mt-10 sm:p-8">
-        <form class="space-y-5" @submit.prevent>
+        <form class="space-y-5" @submit.prevent="onSubmit">
           <div>
             <label for="email" class="mb-2 block text-sm font-medium text-foreground">Email</label>
             <input
               id="email"
+              v-model="email"
               type="email"
               autocomplete="email"
+              required
               placeholder="you@example.com"
               class="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-base outline-none ring-ring transition-shadow focus:ring-2"
             />
@@ -42,8 +80,10 @@ useHead({
             </div>
             <input
               id="password"
+              v-model="password"
               type="password"
               autocomplete="current-password"
+              required
               placeholder="••••••••"
               class="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-base outline-none ring-ring transition-shadow focus:ring-2"
             />
@@ -51,18 +91,24 @@ useHead({
 
           <label class="flex items-center gap-2.5">
             <input
+              v-model="rememberMe"
               type="checkbox"
               class="h-4 w-4 rounded border-input text-primary focus:ring-primary"
             />
             <span class="text-sm text-muted-foreground sm:text-base">Remember me</span>
           </label>
 
-          <NuxtLink
-            to="/dashboard"
-            class="btn-primary w-full rounded-lg px-6 py-3 text-center text-base font-medium"
+          <p v-if="errorMessage" class="text-sm text-red-600" role="alert">
+            {{ errorMessage }}
+          </p>
+
+          <button
+            type="submit"
+            class="btn-primary w-full rounded-lg px-6 py-3 text-center text-base font-medium disabled:cursor-not-allowed disabled:opacity-70"
+            :disabled="pending"
           >
-            Log in
-          </NuxtLink>
+            {{ pending ? 'Logging in…' : 'Log in' }}
+          </button>
         </form>
       </div>
     </div>

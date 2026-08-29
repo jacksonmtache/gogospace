@@ -3,6 +3,11 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@nuxtjs/tailwindcss'],
   css: ['~/assets/css/main.css'],
+  runtimeConfig: {
+    supabaseUrl: '',
+    supabaseAnonKey: '',
+    supabaseServiceRoleKey: '',
+  },
   app: {
     head: {
       title: 'GoGoSpace — AI Interior Design',

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 const route = useRoute()
+const { user, logout } = useAuth()
+const loggingOut = ref(false)
 
-// Layout placeholder — replace with auth/user state later
-const creditsLeft = 12
+const creditsLeft = computed(() => user.value?.credits ?? 0)
 
 const navItems = [
   {
@@ -31,6 +32,18 @@ function isActive(path: string) {
 
 function closeSidebar() {
   sidebarOpen.value = false
+}
+
+async function onSignOut() {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  closeSidebar()
+  try {
+    await logout()
+    await navigateTo('/login')
+  } finally {
+    loggingOut.value = false
+  }
 }
 </script>
 
@@ -82,10 +95,14 @@ function closeSidebar() {
     </nav>
 
     <div class="border-t border-border p-3">
-      <NuxtLink
-        to="/login"
+      <p v-if="user?.email" class="truncate px-3 pb-2 text-xs text-muted-foreground">
+        {{ user.email }}
+      </p>
+      <button
+        type="button"
         class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:text-base"
-        @click="closeSidebar"
+        :disabled="loggingOut"
+        @click="onSignOut"
       >
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path
@@ -94,8 +111,8 @@ function closeSidebar() {
             d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"
           />
         </svg>
-        Sign out
-      </NuxtLink>
+        {{ loggingOut ? 'Signing out…' : 'Sign out' }}
+      </button>
     </div>
   </aside>
 
