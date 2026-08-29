@@ -7,6 +7,10 @@ export default defineNuxtConfig({
     supabaseUrl: '',
     supabaseAnonKey: '',
     supabaseServiceRoleKey: '',
+    openrouterApiKey: '',
+  },
+  nitro: {
+    maxRequestSize: 10 * 1024 * 1024,
   },
   app: {
     head: {

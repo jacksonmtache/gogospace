@@ -1,58 +1,53 @@
 <script setup lang="ts">
+import type { Generation } from '~/types/generation'
+
 definePageMeta({
   layout: 'default',
+  middleware: 'auth',
 })
 
 useHead({
   title: 'Choose Style — GoGoSpace',
 })
 
-// Layout placeholder — replace with uploaded image from route/state later
-const uploadedImage = '/images/original.avif'
-const selectedStyle = ref('minimalist')
+const route = useRoute()
+const { user } = useAuth()
+const { start } = useGenerationJob()
 
-const designStyles = [
-  {
-    id: 'minimalist',
-    name: 'Minimalist',
-    icon: '<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" d="M4 12h16"/></svg>',
-  },
-  {
-    id: 'scandinavian',
-    name: 'Scandinavian',
-    icon: '<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg>',
-  },
-  {
-    id: 'japandi',
-    name: 'Japandi',
-    icon: '<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/></svg>',
-  },
-  {
-    id: 'industrial',
-    name: 'Industrial',
-    icon: '<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M4 9h16M6 9v12h12V9"/></svg>',
-  },
-  {
-    id: 'luxury',
-    name: 'Luxury',
-    icon: '<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l2.2 6.8H21l-5.5 4 2.1 6.7L12 16.8 6.4 20.5l2.1-6.7L3 9.8h6.8L12 3z"/></svg>',
-  },
-  {
-    id: 'muji',
-    name: 'Japanese Muji',
-    icon: '<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" d="M4 8h16M4 12h16M4 16h16"/></svg>',
-  },
-  {
-    id: 'bohemian',
-    name: 'Bohemian',
-    icon: '<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21c4-4 7-7.5 7-11a7 7 0 10-14 0c0 3.5 3 7 7 11z"/></svg>',
-  },
-  {
-    id: 'mid-century',
-    name: 'Mid-century',
-    icon: '<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5v14M7 7l10 10M17 7L7 17"/></svg>',
-  },
-]
+const generationId = computed(() => {
+  const id = route.query.id
+  return typeof id === 'string' ? id : ''
+})
+
+if (!generationId.value) {
+  await navigateTo('/dashboard/new')
+}
+
+const { data, error } = await useFetch<{ generation: Generation }>(
+  () => `/api/generations/${generationId.value}`,
+  { watch: [generationId] },
+)
+
+if (error.value || !data.value?.generation?.originalUrl) {
+  await navigateTo('/dashboard/new')
+}
+
+const uploadedImage = computed(() => data.value?.generation.originalUrl || '')
+const selectedStyle = ref(data.value?.generation.style || 'minimalist')
+const starting = ref(false)
+const startError = ref('')
+
+const creditsLeft = computed(() => user.value?.credits ?? 0)
+const canStart = computed(() => creditsLeft.value >= 1 && !starting.value)
+
+async function onStart() {
+  if (!canStart.value || !generationId.value) return
+
+  starting.value = true
+  startError.value = ''
+  start(generationId.value, selectedStyle.value)
+  await navigateTo(`/scan?id=${generationId.value}&style=${selectedStyle.value}`)
+}
 </script>
 
 <template>
@@ -112,9 +107,11 @@ const designStyles = [
 
       <!-- Start action -->
       <div class="mt-8 border-t border-border pt-8 sm:mt-10">
-        <NuxtLink
-          to="/scan"
-          class="btn-primary mx-auto flex w-full max-w-sm items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 text-base font-semibold sm:py-4 sm:text-lg"
+        <button
+          type="button"
+          class="btn-primary mx-auto flex w-full max-w-sm items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 text-base font-semibold sm:py-4 sm:text-lg disabled:cursor-not-allowed disabled:opacity-60"
+          :disabled="!canStart"
+          @click="onStart"
         >
           <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="12" cy="12" r="9" fill="#EAB308" stroke="#CA8A04" stroke-width="1" />
@@ -125,11 +122,18 @@ const designStyles = [
               stroke-linecap="round"
             />
           </svg>
-          <span>Start</span>
-          <span class="rounded-full bg-white/20 px-2.5 py-0.5 text-sm font-medium">1 coin</span>
-        </NuxtLink>
+          <span>{{ starting ? 'Starting…' : 'Start' }}</span>
+          <span class="rounded-full bg-white/20 px-2.5 py-0.5 text-sm font-medium">1 credit</span>
+        </button>
 
-        <p class="mx-auto mt-4 max-w-sm text-center text-sm text-muted-foreground">
+        <p v-if="creditsLeft < 1" class="mx-auto mt-4 max-w-sm text-center text-sm text-red-600">
+          You need 1 credit to generate a design.
+          <NuxtLink to="/dashboard/settings" class="font-medium underline underline-offset-2">Buy credits</NuxtLink>
+        </p>
+        <p v-else-if="startError" class="mx-auto mt-4 max-w-sm text-center text-sm text-red-600">
+          {{ startError }}
+        </p>
+        <p v-else class="mx-auto mt-4 max-w-sm text-center text-sm text-muted-foreground">
           Make sure your space is clearly visible
         </p>
       </div>

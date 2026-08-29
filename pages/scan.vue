@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import type { Generation, GenerationGenerateResponse } from '~/types/generation'
+
 definePageMeta({
   layout: 'default',
+  middleware: 'auth',
 })
 
 useHead({
@@ -10,24 +13,56 @@ useHead({
 const EDGE_THRESHOLD = 115
 const EDGE_ALPHA = 70
 const MAX_PROCESS_WIDTH = 400
-const SCAN_DURATION = 4500
-const SCAN_REDIRECT_DELAY = 600
+const BEAM_DURATION = 4500
+const GENERATE_DURATION = 40_000
+const POTENTIAL_DURATION = 700
+const HOLD_AT = 95 + Math.floor(Math.random() * 4)
+const SCAN_REDIRECT_DELAY = 400
+const POLL_MS = 2000
+const POLL_ATTEMPTS = 90
 
 const router = useRouter()
+const route = useRoute()
+const { job, start } = useGenerationJob()
+const { fetchUser } = useAuth()
 
-// Layout placeholder — replace with uploaded image from route/state later
-const uploadedImage = '/images/original.avif'
+const generationId = computed(() => {
+  const id = route.query.id
+  return typeof id === 'string' ? id : ''
+})
 
-const scanProgress = ref(0)
-const edgeCanvas = ref<HTMLCanvasElement | null>(null)
-const edgesReady = ref(false)
+const styleFromQuery = computed(() => {
+  const style = route.query.style
+  return typeof style === 'string' ? style : ''
+})
 
-const potentialTarget = Math.floor(Math.random() * 11) + 90
-const potential = computed(() =>
-  Math.round(90 + (scanProgress.value / 100) * (potentialTarget - 90)),
+if (!generationId.value) {
+  await navigateTo('/dashboard/new')
+}
+
+const { data, error: loadError } = await useFetch<{ generation: Generation }>(
+  () => `/api/generations/${generationId.value}`,
 )
 
-let scanTimer: ReturnType<typeof setInterval> | null = null
+if (loadError.value || !data.value?.generation?.originalUrl) {
+  await navigateTo('/dashboard/new')
+}
+
+const uploadedImage = computed(() => data.value?.generation.originalUrl || '')
+const beamProgress = ref(0)
+const generatePercent = ref(0)
+const edgeCanvas = ref<HTMLCanvasElement | null>(null)
+const edgesReady = ref(false)
+const apiSettled = ref(false)
+const apiFailed = ref(false)
+const errorMessage = ref('')
+const potentialTarget = Math.floor(Math.random() * 11) + 90
+const potential = ref(0)
+const displayPercent = computed(() => Math.round(generatePercent.value))
+
+let beamTimer: ReturnType<typeof setInterval> | null = null
+let generateTimer: ReturnType<typeof setInterval> | null = null
+let potentialTimer: ReturnType<typeof setInterval> | null = null
 
 function buildEdgeMap(imageSrc: string, canvas: HTMLCanvasElement) {
   return new Promise<void>((resolve, reject) => {
@@ -48,12 +83,12 @@ function buildEdgeMap(imageSrc: string, canvas: HTMLCanvasElement) {
       }
 
       ctx.drawImage(img, 0, 0, width, height)
-      const { data } = ctx.getImageData(0, 0, width, height)
+      const { data: pixels } = ctx.getImageData(0, 0, width, height)
 
       const gray = new Float32Array(width * height)
       for (let i = 0; i < width * height; i++) {
         const idx = i * 4
-        gray[i] = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]
+        gray[i] = 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2]
       }
 
       const edges = new Uint8Array(width * height)
@@ -105,34 +140,153 @@ function buildEdgeMap(imageSrc: string, canvas: HTMLCanvasElement) {
   })
 }
 
+function stopScan() {
+  if (beamTimer) {
+    clearInterval(beamTimer)
+    beamTimer = null
+  }
+  if (generateTimer) {
+    clearInterval(generateTimer)
+    generateTimer = null
+  }
+  if (potentialTimer) {
+    clearInterval(potentialTimer)
+    potentialTimer = null
+  }
+}
+
+let finished = false
+
+function finishAndRedirect() {
+  if (finished || apiFailed.value) return
+  finished = true
+  stopScan()
+  generatePercent.value = 100
+  setTimeout(() => router.push(`/dashboard/${generationId.value}`), SCAN_REDIRECT_DELAY)
+}
+
 function startScan() {
   const interval = 30
-  const step = (100 / SCAN_DURATION) * interval
+  const beamStep = (100 / BEAM_DURATION) * interval
+  const generateStep = (HOLD_AT / GENERATE_DURATION) * interval
 
-  scanTimer = setInterval(() => {
-    scanProgress.value = Math.min(100, scanProgress.value + step)
-    if (scanProgress.value >= 100 && scanTimer) {
-      clearInterval(scanTimer)
-      scanTimer = null
-      setTimeout(() => router.push('/unlock'), SCAN_REDIRECT_DELAY)
+  beamTimer = setInterval(() => {
+    if (apiFailed.value) return
+    beamProgress.value += beamStep
+    if (beamProgress.value >= 100) beamProgress.value = 0
+  }, interval)
+
+  generateTimer = setInterval(() => {
+    if (apiFailed.value) {
+      stopScan()
+      return
+    }
+
+    if (generatePercent.value < HOLD_AT) {
+      generatePercent.value = Math.min(HOLD_AT, generatePercent.value + generateStep)
+    }
+
+    if (apiSettled.value) {
+      finishAndRedirect()
     }
   }, interval)
+
+  const potentialRange = potentialTarget
+  if (potentialRange > 0) {
+    const potentialStep = (potentialRange / POTENTIAL_DURATION) * interval
+    potentialTimer = setInterval(() => {
+      potential.value = Math.min(potentialTarget, potential.value + potentialStep)
+      if (potential.value >= potentialTarget && potentialTimer) {
+        potential.value = potentialTarget
+        clearInterval(potentialTimer)
+        potentialTimer = null
+      }
+    }, interval)
+  }
+}
+
+async function pollUntilDone() {
+  for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt++) {
+    const { generation } = await $fetch<{ generation: Generation }>(
+      `/api/generations/${generationId.value}`,
+    )
+    if (generation.status === 'completed') {
+      await fetchUser()
+      return { generation, credits: 0 } as GenerationGenerateResponse
+    }
+    if (generation.status === 'failed') {
+      throw new Error(generation.error || 'Generation failed')
+    }
+    if (generation.status === 'uploaded') {
+      const style = styleFromQuery.value || generation.style
+      if (!style) throw new Error('Choose a style to start generating')
+      return start(generationId.value, style)
+    }
+    await new Promise((resolve) => setTimeout(resolve, POLL_MS))
+  }
+  throw new Error('Generation timed out. Please try again.')
+}
+
+async function waitForGeneration() {
+  const current = data.value?.generation
+  if (current?.status === 'completed') return true
+
+  try {
+    if (job.value?.id === generationId.value) {
+      await job.value.promise
+      if (job.value.error) throw new Error(job.value.error)
+      return true
+    }
+
+    if (current?.status === 'generating') {
+      await pollUntilDone()
+      return true
+    }
+
+    const style = styleFromQuery.value || current?.style
+    if (!style) {
+      await navigateTo(`/design?id=${generationId.value}`)
+      return false
+    }
+
+    await start(generationId.value, style)
+    return true
+  } catch (error) {
+    if (apiStatusCode(error) === 409) {
+      await pollUntilDone()
+      return true
+    }
+    throw error
+  }
 }
 
 onMounted(async () => {
-  if (edgeCanvas.value) {
+  if (edgeCanvas.value && uploadedImage.value) {
     try {
-      await buildEdgeMap(uploadedImage, edgeCanvas.value)
+      await buildEdgeMap(uploadedImage.value, edgeCanvas.value)
       edgesReady.value = true
     } catch {
       edgesReady.value = false
     }
   }
+
   startScan()
+
+  try {
+    const done = await waitForGeneration()
+    if (!done) return
+    apiSettled.value = true
+    finishAndRedirect()
+  } catch (error) {
+    apiFailed.value = true
+    stopScan()
+    errorMessage.value = apiErrorMessage(error, 'Generation failed')
+    await fetchUser()
+  }
 })
 
 onUnmounted(() => {
-  if (scanTimer) clearInterval(scanTimer)
+  stopScan()
 })
 </script>
 
@@ -144,7 +298,7 @@ onUnmounted(() => {
           Space Scan
         </h1>
         <p class="mt-2 text-base text-muted-foreground sm:text-lg">
-          Assessing design potential...
+          {{ errorMessage ? 'Scan interrupted' : `AI generating ${displayPercent}%` }}
         </p>
       </header>
 
@@ -159,7 +313,7 @@ onUnmounted(() => {
 
             <div
               class="absolute inset-0 overflow-hidden"
-              :style="{ clipPath: `inset(0 0 ${100 - scanProgress}% 0)` }"
+              :style="{ clipPath: `inset(0 0 ${100 - beamProgress}% 0)` }"
             >
               <img
                 :src="uploadedImage"
@@ -185,13 +339,28 @@ onUnmounted(() => {
 
             <div
               class="scan-beam pointer-events-none absolute left-0 right-0"
-              :style="{ top: `${scanProgress}%` }"
+              :style="{ top: `${beamProgress}%` }"
             />
           </div>
         </div>
       </div>
 
-      <div class="mt-8 overflow-hidden rounded-2xl border border-border bg-card shadow-sm sm:mt-10">
+      <div v-if="errorMessage" class="mt-8 rounded-2xl border border-red-200 bg-red-50 px-4 py-5 text-center sm:mt-10">
+        <p class="text-sm font-medium text-red-700 sm:text-base">{{ errorMessage }}</p>
+        <div class="mt-4 flex justify-center gap-3">
+          <NuxtLink
+            :to="`/design?id=${generationId}`"
+            class="btn-outline rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            Choose style
+          </NuxtLink>
+          <NuxtLink to="/dashboard/new" class="btn-primary rounded-lg px-4 py-2 text-sm font-medium">
+            New photo
+          </NuxtLink>
+        </div>
+      </div>
+
+      <div v-else class="mt-8 overflow-hidden rounded-2xl border border-border bg-card shadow-sm sm:mt-10">
         <div class="grid grid-cols-3 divide-x divide-border">
           <div class="px-3 py-5 text-center sm:px-4 sm:py-6">
             <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:text-sm">Space</p>
@@ -203,14 +372,14 @@ onUnmounted(() => {
           </div>
           <div class="px-3 py-5 text-center sm:px-4 sm:py-6">
             <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:text-sm">Potential</p>
-            <p class="mt-1 text-2xl font-bold text-primary sm:text-3xl">{{ potential }}</p>
+            <p class="mt-1 text-2xl font-bold text-primary sm:text-3xl">{{ Math.round(potential) }}</p>
           </div>
         </div>
 
         <div class="h-1.5 bg-muted">
           <div
             class="h-full bg-primary transition-[width] duration-150 ease-linear"
-            :style="{ width: `${scanProgress}%` }"
+            :style="{ width: `${generatePercent}%` }"
           />
         </div>
       </div>

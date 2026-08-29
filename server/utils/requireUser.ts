@@ -84,3 +84,17 @@ export async function requireUser(event: H3Event): Promise<AuthUser> {
   }
   return user
 }
+
+export async function requireUserSession(event: H3Event) {
+  if (!isSupabaseConfigured()) {
+    throw createError({ statusCode: 500, statusMessage: 'Supabase is not configured' })
+  }
+
+  const session = await resolveSession(event)
+  if (!session) {
+    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+  }
+
+  const authUser = await loadAuthUser(session.accessToken, session.user)
+  return { ...session, authUser }
+}

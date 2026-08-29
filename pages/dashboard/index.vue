@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { Generation } from '~/types/generation'
+
 definePageMeta({
   layout: 'dashboard',
   middleware: 'auth',
@@ -8,36 +10,21 @@ useHead({
   title: 'Past Projects — GoGoSpace',
 })
 
-const projects = [
-  {
-    id: 1,
-    title: 'Living room redesign',
-    style: 'Minimalist',
-    image: '/images/minimalist.avif',
-    date: 'Aug 28, 2026',
-  },
-  {
-    id: 2,
-    title: 'Bedroom concept',
-    style: 'Japandi',
-    image: '/images/howtouse3.avif',
-    date: 'Aug 25, 2026',
-  },
-  {
-    id: 3,
-    title: 'Kitchen refresh',
-    style: 'Scandinavian',
-    image: '/images/howtouse2.avif',
-    date: 'Aug 20, 2026',
-  },
-  {
-    id: 4,
-    title: 'Home office',
-    style: 'Industrial',
-    image: '/images/original.avif',
-    date: 'Aug 15, 2026',
-  },
-]
+const { data, error, pending } = await useFetch<{ generations: Generation[] }>('/api/generations')
+
+const projects = computed(() => data.value?.generations ?? [])
+
+function styleName(style: string | null) {
+  return getDesignStyle(style || '')?.name || 'Design'
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
 </script>
 
 <template>
@@ -49,24 +36,52 @@ const projects = [
       </p>
     </header>
 
-    <div class="mt-6 grid gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
-      <article
+    <p v-if="error" class="mt-8 text-sm text-red-600 sm:text-base">
+      Could not load your projects. Refresh to try again.
+    </p>
+
+    <div v-else-if="pending && !projects.length" class="mt-8 grid gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
+      <div v-for="n in 3" :key="n" class="h-64 animate-pulse rounded-xl bg-muted" />
+    </div>
+
+    <div
+      v-else-if="!projects.length"
+      class="mt-8 rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center"
+    >
+      <p class="text-base font-medium text-foreground sm:text-lg">No designs yet</p>
+      <p class="mt-1 text-sm text-muted-foreground sm:text-base">
+        Upload a room photo to generate your first redesign.
+      </p>
+      <NuxtLink
+        to="/dashboard/new"
+        class="btn-primary mt-6 inline-flex rounded-lg px-6 py-3 text-base font-medium"
+      >
+        New project
+      </NuxtLink>
+    </div>
+
+    <div v-else class="mt-6 grid gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
+      <NuxtLink
         v-for="project in projects"
         :key="project.id"
+        :to="`/dashboard/${project.id}`"
         class="group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
       >
         <div class="aspect-[4/3] overflow-hidden bg-muted">
           <img
-            :src="project.image"
-            :alt="project.title"
+            v-if="project.resultUrl"
+            :src="project.resultUrl"
+            :alt="`${styleName(project.style)} redesign`"
             class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         </div>
         <div class="p-4">
-          <h2 class="font-semibold text-foreground">{{ project.title }}</h2>
-          <p class="mt-1 text-sm text-muted-foreground">{{ project.style }} · {{ project.date }}</p>
+          <h2 class="font-semibold text-foreground">{{ styleName(project.style) }} redesign</h2>
+          <p class="mt-1 text-sm text-muted-foreground">
+            {{ styleName(project.style) }} · {{ formatDate(project.createdAt) }}
+          </p>
         </div>
-      </article>
+      </NuxtLink>
     </div>
   </div>
 </template>

@@ -26,7 +26,9 @@ const navItems = [
 const sidebarOpen = ref(false)
 
 function isActive(path: string) {
-  if (path === '/dashboard') return route.path === '/dashboard'
+  if (path === '/dashboard') {
+    return route.path === '/dashboard' || /^\/dashboard\/[0-9a-f-]{36}$/i.test(route.path)
+  }
   return route.path.startsWith(path)
 }
 

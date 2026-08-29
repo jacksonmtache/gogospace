@@ -54,14 +54,10 @@ export function createAdminClient() {
 export function createUserClient(accessToken: string) {
   const { url, anonKey } = getSupabaseConfig()
   return createClient(url, anonKey, {
+    accessToken: async () => accessToken,
     auth: {
       autoRefreshToken: false,
       persistSession: false,
-    },
-    global: {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
     },
   })
 }
