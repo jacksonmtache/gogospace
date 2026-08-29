@@ -328,6 +328,7 @@ function loadImage(file: File) {
     if (typeof result === 'string') {
       uploadedImage.value = result
       beforeImage.value = result
+      scrollToSection('hero')
     }
   }
   reader.readAsDataURL(file)
@@ -775,8 +776,18 @@ onUnmounted(() => {
           Join thousands of homeowners and designers creating beautiful interiors with AI.
         </p>
         <div class="mt-8 flex flex-col items-stretch justify-center gap-3 sm:mt-10 sm:flex-row sm:items-center sm:gap-4">
-          <button class="rounded-xl bg-white px-6 py-3.5 text-base font-semibold text-primary transition-opacity hover:opacity-90 sm:px-10 sm:py-4 sm:text-lg">
-            Get started — it's free
+          <button
+            class="inline-flex items-center justify-center gap-3 rounded-xl bg-white px-6 py-3.5 text-base font-semibold text-primary transition-opacity hover:opacity-90 sm:px-10 sm:py-4 sm:text-lg"
+            @click="heroFileInput?.click()"
+          >
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+              />
+            </svg>
+            Upload image
           </button>
           <button
             class="rounded-xl border-2 border-white/40 px-6 py-3.5 text-base font-medium text-white transition-colors hover:border-white hover:bg-white/10 sm:px-10 sm:py-4 sm:text-lg"
