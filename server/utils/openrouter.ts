@@ -1,4 +1,4 @@
-import { buildStylePrompt } from '~/utils/designStyles'
+import { buildStylePrompt, getDesignStyle } from '~/utils/designStyles'
 import type { GrokAspectRatio } from './aspectRatio'
 
 const OPENROUTER_IMAGES_URL = 'https://openrouter.ai/api/v1/images'
@@ -21,11 +21,11 @@ function mimeToExt(mediaType: string) {
   return 'png'
 }
 
-export async function generateStyledImage(options: {
-  styleId: string
+export async function generateImageFromReference(options: {
+  prompt: string
   aspectRatio: GrokAspectRatio
-  originalBytes: Buffer
-  originalMime: string
+  referenceBytes: Buffer
+  referenceMime: string
 }) {
   const config = useRuntimeConfig()
   const apiKey = String(config.openrouterApiKey || '')
@@ -36,11 +36,11 @@ export async function generateStyledImage(options: {
     })
   }
 
-  const dataUrl = `data:${options.originalMime};base64,${options.originalBytes.toString('base64')}`
+  const dataUrl = `data:${options.referenceMime};base64,${options.referenceBytes.toString('base64')}`
 
   const payload = {
     model: OPENROUTER_MODEL,
-    prompt: buildStylePrompt(options.styleId),
+    prompt: options.prompt,
     n: 1,
     aspect_ratio: options.aspectRatio,
     resolution: '2K',
@@ -96,4 +96,34 @@ export async function generateStyledImage(options: {
     contentType: mediaType,
     ext: mimeToExt(mediaType),
   }
+}
+
+export async function generateStyledImage(options: {
+  styleId: string
+  aspectRatio: GrokAspectRatio
+  originalBytes: Buffer
+  originalMime: string
+}) {
+  return generateImageFromReference({
+    prompt: buildStylePrompt(options.styleId),
+    aspectRatio: options.aspectRatio,
+    referenceBytes: options.originalBytes,
+    referenceMime: options.originalMime,
+  })
+}
+
+export function buildRefinePrompt(instruction: string, styleId: string | null) {
+  const style = styleId ? getDesignStyle(styleId) : null
+  const styleHint = style ? ` Keep the ${style.name} interior style.` : ''
+
+  return [
+    'Photorealistic edit of this interior photograph.',
+    `Apply this change: ${instruction}`,
+    styleHint.trim(),
+    'Keep the same room layout, camera angle, architecture, and proportions.',
+    'Do not change the structure of the space.',
+    'High-end architectural photography, realistic materials and lighting.',
+  ]
+    .filter(Boolean)
+    .join(' ')
 }

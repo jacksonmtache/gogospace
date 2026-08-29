@@ -1,5 +1,12 @@
 export type GenerationStatus = 'uploaded' | 'generating' | 'completed' | 'failed'
 
+export interface GenerationVersion {
+  path: string
+  url: string
+  instruction: string | null
+  createdAt: string
+}
+
 export interface Generation {
   id: string
   style: string | null
@@ -7,6 +14,7 @@ export interface Generation {
   status: GenerationStatus
   originalUrl: string | null
   resultUrl: string | null
+  versions: GenerationVersion[]
   error: string | null
   createdAt: string
 }

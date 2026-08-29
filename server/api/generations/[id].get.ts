@@ -26,6 +26,9 @@ export default defineEventHandler(async (event): Promise<{ generation: Generatio
   }
 
   return {
-    generation: await toGeneration(data as GenerationRow, accessToken, { includeResult: true }),
+    generation: await toGeneration(data as GenerationRow, accessToken, {
+      includeResult: true,
+      includeVersions: true,
+    }),
   }
 })

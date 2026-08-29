@@ -25,6 +25,9 @@ const router = useRouter()
 const route = useRoute()
 const { job, start } = useGenerationJob()
 const { fetchUser } = useAuth()
+const isRefine = computed(
+  () => job.value?.kind === 'refine' || route.query.refine === '1' || route.query.refine === 'true',
+)
 
 const generationId = computed(() => {
   const id = route.query.id
@@ -48,7 +51,17 @@ if (loadError.value || !data.value?.generation?.originalUrl) {
   await navigateTo('/dashboard/new')
 }
 
-const uploadedImage = computed(() => data.value?.generation.originalUrl || '')
+const scanImage = computed(() => {
+  if (isRefine.value) {
+    return (
+      job.value?.previewUrl ||
+      data.value?.generation.resultUrl ||
+      data.value?.generation.originalUrl ||
+      ''
+    )
+  }
+  return data.value?.generation.originalUrl || ''
+})
 const beamProgress = ref(0)
 const generatePercent = ref(0)
 const edgeCanvas = ref<HTMLCanvasElement | null>(null)
@@ -229,7 +242,6 @@ async function pollUntilDone() {
 
 async function waitForGeneration() {
   const current = data.value?.generation
-  if (current?.status === 'completed') return true
 
   try {
     if (job.value?.id === generationId.value) {
@@ -237,6 +249,8 @@ async function waitForGeneration() {
       if (job.value.error) throw new Error(job.value.error)
       return true
     }
+
+    if (current?.status === 'completed') return true
 
     if (current?.status === 'generating') {
       await pollUntilDone()
@@ -261,9 +275,9 @@ async function waitForGeneration() {
 }
 
 onMounted(async () => {
-  if (edgeCanvas.value && uploadedImage.value) {
+  if (edgeCanvas.value && scanImage.value) {
     try {
-      await buildEdgeMap(uploadedImage.value, edgeCanvas.value)
+      await buildEdgeMap(scanImage.value, edgeCanvas.value)
       edgesReady.value = true
     } catch {
       edgesReady.value = false
@@ -298,7 +312,7 @@ onUnmounted(() => {
           Space Scan
         </h1>
         <p class="mt-2 text-base text-muted-foreground sm:text-lg">
-          {{ errorMessage ? 'Scan interrupted' : `AI generating ${displayPercent}%` }}
+          {{ errorMessage ? 'Scan interrupted' : `AI ${isRefine ? 'refining' : 'generating'} ${displayPercent}%` }}
         </p>
       </header>
 
@@ -306,7 +320,7 @@ onUnmounted(() => {
         <div class="scan-frame overflow-hidden rounded-2xl border-2 border-primary bg-primary/5 p-1 shadow-lg">
           <div class="scan-grid relative aspect-[4/3] overflow-hidden rounded-xl bg-slate-100">
             <img
-              :src="uploadedImage"
+              :src="scanImage"
               alt="Scanning your space"
               class="absolute inset-0 h-full w-full object-cover opacity-35 saturate-50"
             />
@@ -316,7 +330,7 @@ onUnmounted(() => {
               :style="{ clipPath: `inset(0 0 ${100 - beamProgress}% 0)` }"
             >
               <img
-                :src="uploadedImage"
+                :src="scanImage"
                 alt=""
                 aria-hidden="true"
                 class="absolute inset-0 h-full w-full object-cover opacity-90"
@@ -349,6 +363,14 @@ onUnmounted(() => {
         <p class="text-sm font-medium text-red-700 sm:text-base">{{ errorMessage }}</p>
         <div class="mt-4 flex justify-center gap-3">
           <NuxtLink
+            v-if="isRefine"
+            :to="`/dashboard/${generationId}`"
+            class="btn-outline rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            Back to project
+          </NuxtLink>
+          <NuxtLink
+            v-else
             :to="`/design?id=${generationId}`"
             class="btn-outline rounded-lg px-4 py-2 text-sm font-medium"
           >
