@@ -59,5 +59,13 @@ export function useAuth() {
     return data
   }
 
-  return { user, ready, fetchUser, login, logout, requestPasswordReset, resetPassword }
+  async function changePassword(currentPassword: string, password: string) {
+    await $fetch('/api/auth/change-password', {
+      method: 'POST',
+      credentials: 'include',
+      body: { currentPassword, password },
+    })
+  }
+
+  return { user, ready, fetchUser, login, logout, requestPasswordReset, resetPassword, changePassword }
 }
