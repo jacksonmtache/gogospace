@@ -1,11 +1,18 @@
 export default defineEventHandler(async (event) => {
   const accessToken = getAccessToken(event)
+  clearSessionCookies(event)
 
   if (accessToken) {
-    const client = createUserClient(accessToken)
-    await client.auth.signOut().catch(() => {})
+    try {
+      const client = createUserClient(accessToken)
+      await Promise.race([
+        client.auth.signOut().catch(() => {}),
+        new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+      ])
+    } catch {
+      // Cookies are already cleared.
+    }
   }
 
-  clearSessionCookies(event)
   return { ok: true }
 })

@@ -21,7 +21,7 @@ async function onLogout() {
   mobileMenuOpen.value = false
   try {
     await logout()
-    await navigateTo('/login')
+    await navigateTo('/login', { replace: true })
   } finally {
     loggingOut.value = false
   }

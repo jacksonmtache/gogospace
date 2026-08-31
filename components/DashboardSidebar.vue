@@ -42,7 +42,7 @@ async function onSignOut() {
   closeSidebar()
   try {
     await logout()
-    await navigateTo('/login')
+    await navigateTo('/login', { replace: true })
   } finally {
     loggingOut.value = false
   }

@@ -38,7 +38,7 @@ export function setSessionCookies(event: H3Event, session: Session, rememberMe =
 }
 
 export function clearSessionCookies(event: H3Event) {
-  const opts = { path: '/' }
+  const opts = baseCookieOptions()
   deleteCookie(event, ACCESS_COOKIE, opts)
   deleteCookie(event, REFRESH_COOKIE, opts)
   deleteCookie(event, REMEMBER_COOKIE, opts)

@@ -11,12 +11,16 @@ useHead({
 import { FetchError } from 'ofetch'
 
 const { login } = useAuth()
+const route = useRoute()
 
 const email = ref('')
 const password = ref('')
 const rememberMe = ref(false)
 const errorMessage = ref('')
 const pending = ref(false)
+const successMessage = computed(() =>
+  route.query.reset === 'success' ? 'Password updated. Log in with your new password.' : '',
+)
 
 function toLoginError(error: unknown) {
   if (error instanceof FetchError) {
@@ -97,6 +101,10 @@ async function onSubmit() {
             />
             <span class="text-sm text-muted-foreground sm:text-base">Remember me</span>
           </label>
+
+          <p v-if="successMessage && !errorMessage" class="text-sm text-primary" role="status">
+            {{ successMessage }}
+          </p>
 
           <p v-if="errorMessage" class="text-sm text-red-600" role="alert">
             {{ errorMessage }}

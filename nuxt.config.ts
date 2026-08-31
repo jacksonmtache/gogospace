@@ -8,6 +8,11 @@ export default defineNuxtConfig({
     supabaseAnonKey: '',
     supabaseServiceRoleKey: '',
     openrouterApiKey: '',
+    resendApiKey: '',
+    resendFromEmail: 'GoGoSpace <noreply@gogospace.com>',
+    public: {
+      siteUrl: '',
+    },
   },
   nitro: {
     maxRequestSize: 10 * 1024 * 1024,

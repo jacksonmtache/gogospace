@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({
   layout: 'default',
+  middleware: 'guest',
 })
 
 const uploadedImage = ref<string | null>(null)
