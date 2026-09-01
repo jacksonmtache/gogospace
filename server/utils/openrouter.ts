@@ -1,4 +1,5 @@
 import { buildStylePrompt, getDesignStyle } from '~/utils/designStyles'
+import { isTestEnv } from '~/utils/env'
 import type { GrokAspectRatio } from './aspectRatio'
 
 const OPENROUTER_IMAGES_URL = 'https://openrouter.ai/api/v1/images'
@@ -52,6 +53,16 @@ export async function generateImageFromReference(options: {
     ],
   }
 
+  if (isTestEnv()) {
+    console.log('[api] OpenRouter POST', OPENROUTER_IMAGES_URL, {
+      model: payload.model,
+      prompt: payload.prompt,
+      aspect_ratio: payload.aspect_ratio,
+      resolution: payload.resolution,
+      hasReference: Boolean(payload.input_references?.length),
+    })
+  }
+
   let response = await fetch(OPENROUTER_IMAGES_URL, {
     method: 'POST',
     headers: {
@@ -65,6 +76,13 @@ export async function generateImageFromReference(options: {
   let result = (await response.json()) as OpenRouterImageResponse
 
   if (!response.ok && response.status === 400 && payload.resolution) {
+    if (isTestEnv()) {
+      console.error('[api error] OpenRouter', {
+        status: response.status,
+        error: result.error,
+        retryingWithoutResolution: true,
+      })
+    }
     delete (payload as { resolution?: string }).resolution
     response = await fetch(OPENROUTER_IMAGES_URL, {
       method: 'POST',
@@ -80,11 +98,32 @@ export async function generateImageFromReference(options: {
 
   if (!response.ok) {
     const message = result.error?.message || `OpenRouter request failed (${response.status})`
+    if (isTestEnv()) {
+      console.error('[api error] OpenRouter', {
+        status: response.status,
+        error: result.error,
+        message,
+      })
+    }
     throw createError({ statusCode: 502, statusMessage: message })
+  }
+
+  if (isTestEnv()) {
+    console.log('[api] OpenRouter response', {
+      status: response.status,
+      hasImage: Boolean(result.data?.[0]?.b64_json),
+      mediaType: result.data?.[0]?.media_type || null,
+    })
   }
 
   const image = result.data?.[0]
   if (!image?.b64_json) {
+    if (isTestEnv()) {
+      console.error('[api error] OpenRouter returned no image', {
+        status: response.status,
+        error: result.error,
+      })
+    }
     throw createError({ statusCode: 502, statusMessage: 'OpenRouter returned no image' })
   }
 

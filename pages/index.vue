@@ -4,7 +4,6 @@ definePageMeta({
   middleware: 'guest',
 })
 
-const uploadedImage = ref<string | null>(null)
 const comparePosition = ref(50)
 const compareContainer = ref<HTMLElement | null>(null)
 const compareContainerWidth = ref(0)
@@ -17,6 +16,8 @@ const openFaq = ref(0)
 const phraseIndex = ref(0)
 const windowWidth = ref(0)
 const heroFileInput = ref<HTMLInputElement | null>(null)
+const uploadError = ref('')
+const uploadingPreview = ref(false)
 
 let isDraggingCompare = false
 let testimonialTimer: ReturnType<typeof setInterval> | null = null
@@ -24,6 +25,7 @@ let phraseTimer: ReturnType<typeof setInterval> | null = null
 
 const { scrollToSection } = useSiteNavigation()
 const { registerUploadTrigger, unregisterUploadTrigger } = useUploadTrigger()
+const { begin } = usePreviewSession()
 
 const rotatingPhrases = ['Room Photo', 'Design Sketch', 'Space Photo', 'Concept Sketch']
 
@@ -316,23 +318,23 @@ function triggerHeroUpload() {
   })
 }
 
-function onFileSelect(e: Event) {
+async function onFileSelect(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
-  if (file) loadImage(file)
-}
+  input.value = ''
+  if (!file || uploadingPreview.value) return
 
-function loadImage(file: File) {
-  const reader = new FileReader()
-  reader.onload = (event) => {
-    const result = event.target?.result
-    if (typeof result === 'string') {
-      uploadedImage.value = result
-      beforeImage.value = result
-      scrollToSection('hero')
-    }
+  uploadError.value = ''
+  uploadingPreview.value = true
+  try {
+    await begin(file)
+    await navigateTo('/design')
+  } catch (error) {
+    uploadError.value = error instanceof Error ? error.message : 'Could not read that photo.'
+    scrollToSection('hero')
+  } finally {
+    uploadingPreview.value = false
   }
-  reader.readAsDataURL(file)
 }
 
 function getPointerX(e: MouseEvent | TouchEvent) {
@@ -431,7 +433,8 @@ onUnmounted(() => {
 
         <div class="animate-fade-up delay-200 mt-8 sm:mt-10">
           <button
-            class="upload-btn inline-flex w-full items-center justify-center gap-3 rounded-xl px-6 py-3.5 text-base font-semibold sm:w-auto sm:px-10 sm:py-4 sm:text-lg"
+            class="upload-btn inline-flex w-full items-center justify-center gap-3 rounded-xl px-6 py-3.5 text-base font-semibold sm:w-auto sm:px-10 sm:py-4 sm:text-lg disabled:cursor-not-allowed disabled:opacity-70"
+            :disabled="uploadingPreview"
             @click="heroFileInput?.click()"
           >
             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -441,16 +444,17 @@ onUnmounted(() => {
                 d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
               />
             </svg>
-            Upload your space
+            {{ uploadingPreview ? 'Uploading…' : 'Upload your space' }}
           </button>
           <input
             ref="heroFileInput"
             data-hero-upload
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             class="hidden"
             @change="onFileSelect"
           />
+          <p v-if="uploadError" class="mt-3 text-sm text-red-600 sm:text-base">{{ uploadError }}</p>
         </div>
 
         <div
@@ -778,7 +782,8 @@ onUnmounted(() => {
         </p>
         <div class="mt-8 flex flex-col items-stretch justify-center gap-3 sm:mt-10 sm:flex-row sm:items-center sm:gap-4">
           <button
-            class="inline-flex items-center justify-center gap-3 rounded-xl bg-white px-6 py-3.5 text-base font-semibold text-primary transition-opacity hover:opacity-90 sm:px-10 sm:py-4 sm:text-lg"
+            class="inline-flex items-center justify-center gap-3 rounded-xl bg-white px-6 py-3.5 text-base font-semibold text-primary transition-opacity hover:opacity-90 sm:px-10 sm:py-4 sm:text-lg disabled:cursor-not-allowed disabled:opacity-70"
+            :disabled="uploadingPreview"
             @click="heroFileInput?.click()"
           >
             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -788,13 +793,14 @@ onUnmounted(() => {
                 d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
               />
             </svg>
-            Upload image
+            {{ uploadingPreview ? 'Uploading…' : 'Upload image' }}
           </button>
-          <button
-            class="rounded-xl border-2 border-white/40 px-6 py-3.5 text-base font-medium text-white transition-colors hover:border-white hover:bg-white/10 sm:px-10 sm:py-4 sm:text-lg"
+          <NuxtLink
+            to="/unlock"
+            class="rounded-xl border-2 border-white/40 px-6 py-3.5 text-center text-base font-medium text-white transition-colors hover:border-white hover:bg-white/10 sm:px-10 sm:py-4 sm:text-lg"
           >
             View pricing
-          </button>
+          </NuxtLink>
         </div>
       </div>
     </section>

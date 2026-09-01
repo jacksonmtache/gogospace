@@ -3,7 +3,7 @@ import type { Generation } from '~/types/generation'
 
 definePageMeta({
   layout: 'default',
-  middleware: 'auth',
+  ssr: false,
 })
 
 useHead({
@@ -13,38 +13,62 @@ useHead({
 const route = useRoute()
 const { user } = useAuth()
 const { start } = useGenerationJob()
+const { session, isPreview, setStyle } = usePreviewSession()
 
 const generationId = computed(() => {
   const id = route.query.id
   return typeof id === 'string' ? id : ''
 })
 
-if (!generationId.value) {
-  await navigateTo('/dashboard/new')
-}
-
 const { data, error } = await useFetch<{ generation: Generation }>(
   () => `/api/generations/${generationId.value}`,
-  { watch: [generationId] },
+  {
+    immediate: Boolean(!isPreview.value && user.value && generationId.value),
+    watch: false,
+  },
 )
 
-if (error.value || !data.value?.generation?.originalUrl) {
-  await navigateTo('/dashboard/new')
+if (!isPreview.value) {
+  if (!user.value) {
+    await navigateTo('/')
+  } else if (!generationId.value || error.value || !data.value?.generation?.originalUrl) {
+    await navigateTo('/dashboard/new')
+  }
 }
 
-const uploadedImage = computed(() => data.value?.generation.originalUrl || '')
-const selectedStyle = ref(data.value?.generation.style || 'minimalist')
+const uploadedImage = computed(
+  () => session.value?.imageDataUrl || data.value?.generation.originalUrl || '',
+)
+const selectedStyle = ref(
+  session.value?.style || data.value?.generation.style || 'minimalist',
+)
 const starting = ref(false)
 const startError = ref('')
 
 const creditsLeft = computed(() => user.value?.credits ?? 0)
-const canStart = computed(() => creditsLeft.value >= 1 && !starting.value)
+const canStart = computed(() => {
+  if (starting.value) return false
+  if (isPreview.value) return true
+  return creditsLeft.value >= 1
+})
 
 async function onStart() {
-  if (!canStart.value || !generationId.value) return
+  if (!canStart.value) return
 
   starting.value = true
   startError.value = ''
+
+  if (isPreview.value) {
+    setStyle(selectedStyle.value)
+    await navigateTo('/scan')
+    return
+  }
+
+  if (!generationId.value) {
+    starting.value = false
+    return
+  }
+
   start(generationId.value, selectedStyle.value)
   await navigateTo(`/scan?id=${generationId.value}&style=${selectedStyle.value}`)
 }
@@ -126,7 +150,7 @@ async function onStart() {
           <span class="rounded-full bg-white/20 px-2.5 py-0.5 text-sm font-medium">1 credit</span>
         </button>
 
-        <p v-if="creditsLeft < 1" class="mx-auto mt-4 max-w-sm text-center text-sm text-red-600">
+        <p v-if="!isPreview && creditsLeft < 1" class="mx-auto mt-4 max-w-sm text-center text-sm text-red-600">
           You need 1 credit to generate a design.
           <NuxtLink to="/dashboard/settings" class="font-medium underline underline-offset-2">Buy credits</NuxtLink>
         </p>

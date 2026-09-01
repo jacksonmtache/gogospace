@@ -18,7 +18,13 @@ interface PricingPlan {
   badge?: string
 }
 
+const { session } = usePreviewSession()
 const selectedPlan = ref<PlanId>('popular')
+const previewStyleName = ref('')
+
+onMounted(() => {
+  previewStyleName.value = getDesignStyle(session.value?.style || '')?.name || ''
+})
 
 const plans: PricingPlan[] = [
   {
@@ -63,7 +69,11 @@ const activePlan = computed(() => plans.find((plan) => plan.id === selectedPlan.
           Unlock your designs
         </h1>
         <p class="mt-2 text-base text-muted-foreground sm:text-lg">
-          We generated 1 style for your space
+          {{
+            previewStyleName
+              ? `We generated 1 ${previewStyleName} style for your space`
+              : 'We generated 1 style for your space'
+          }}
         </p>
 
         <div class="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground sm:text-base">

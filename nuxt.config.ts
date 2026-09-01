@@ -12,6 +12,7 @@ export default defineNuxtConfig({
     resendFromEmail: 'GoGoSpace <noreply@gogospace.com>',
     public: {
       siteUrl: '',
+      appEnv: process.env.NODE_ENV === 'production' ? 'production' : 'test',
     },
   },
   nitro: {

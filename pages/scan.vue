@@ -1,30 +1,25 @@
 <script setup lang="ts">
 import type { Generation, GenerationGenerateResponse } from '~/types/generation'
+import { SCAN_REDIRECT_DELAY } from '~/composables/useSpaceScanAnimation'
 
 definePageMeta({
   layout: 'default',
-  middleware: 'auth',
+  ssr: false,
 })
 
 useHead({
   title: 'Space Scan — GoGoSpace',
 })
 
-const EDGE_THRESHOLD = 115
-const EDGE_ALPHA = 70
-const MAX_PROCESS_WIDTH = 400
-const BEAM_DURATION = 4500
-const GENERATE_DURATION = 40_000
-const POTENTIAL_DURATION = 700
-const HOLD_AT = 95 + Math.floor(Math.random() * 4)
-const SCAN_REDIRECT_DELAY = 400
 const POLL_MS = 2000
 const POLL_ATTEMPTS = 90
 
 const router = useRouter()
 const route = useRoute()
 const { job, start } = useGenerationJob()
-const { fetchUser } = useAuth()
+const { user, fetchUser } = useAuth()
+const { session, isPreview } = usePreviewSession()
+
 const isRefine = computed(
   () => job.value?.kind === 'refine' || route.query.refine === '1' || route.query.refine === 'true',
 )
@@ -39,19 +34,24 @@ const styleFromQuery = computed(() => {
   return typeof style === 'string' ? style : ''
 })
 
-if (!generationId.value) {
-  await navigateTo('/dashboard/new')
-}
-
 const { data, error: loadError } = await useFetch<{ generation: Generation }>(
   () => `/api/generations/${generationId.value}`,
+  {
+    immediate: Boolean(!isPreview.value && user.value && generationId.value),
+    watch: false,
+  },
 )
 
-if (loadError.value || !data.value?.generation?.originalUrl) {
-  await navigateTo('/dashboard/new')
+if (!isPreview.value) {
+  if (!user.value) {
+    await navigateTo('/')
+  } else if (!generationId.value || loadError.value || !data.value?.generation?.originalUrl) {
+    await navigateTo('/dashboard/new')
+  }
 }
 
 const scanImage = computed(() => {
+  if (isPreview.value) return session.value?.imageDataUrl || ''
   if (isRefine.value) {
     return (
       job.value?.previewUrl ||
@@ -62,161 +62,34 @@ const scanImage = computed(() => {
   }
   return data.value?.generation.originalUrl || ''
 })
-const beamProgress = ref(0)
-const generatePercent = ref(0)
-const edgeCanvas = ref<HTMLCanvasElement | null>(null)
-const edgesReady = ref(false)
+
 const apiSettled = ref(false)
 const apiFailed = ref(false)
 const errorMessage = ref('')
-const potentialTarget = Math.floor(Math.random() * 11) + 90
-const potential = ref(0)
-const displayPercent = computed(() => Math.round(generatePercent.value))
-
-let beamTimer: ReturnType<typeof setInterval> | null = null
-let generateTimer: ReturnType<typeof setInterval> | null = null
-let potentialTimer: ReturnType<typeof setInterval> | null = null
-
-function buildEdgeMap(imageSrc: string, canvas: HTMLCanvasElement) {
-  return new Promise<void>((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      const scale = Math.min(1, MAX_PROCESS_WIDTH / img.naturalWidth)
-      const width = Math.round(img.naturalWidth * scale)
-      const height = Math.round(img.naturalHeight * scale)
-
-      const offscreen = document.createElement('canvas')
-      offscreen.width = width
-      offscreen.height = height
-      const ctx = offscreen.getContext('2d')
-      if (!ctx) {
-        reject(new Error('Canvas context unavailable'))
-        return
-      }
-
-      ctx.drawImage(img, 0, 0, width, height)
-      const { data: pixels } = ctx.getImageData(0, 0, width, height)
-
-      const gray = new Float32Array(width * height)
-      for (let i = 0; i < width * height; i++) {
-        const idx = i * 4
-        gray[i] = 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2]
-      }
-
-      const edges = new Uint8Array(width * height)
-      for (let y = 1; y < height - 1; y++) {
-        for (let x = 1; x < width - 1; x++) {
-          const i = y * width + x
-          const gx =
-            -gray[i - width - 1] +
-            gray[i - width + 1] -
-            2 * gray[i - 1] +
-            2 * gray[i + 1] -
-            gray[i + width - 1] +
-            gray[i + width + 1]
-          const gy =
-            -gray[i - width - 1] -
-            2 * gray[i - width] -
-            gray[i - width + 1] +
-            gray[i + width - 1] +
-            2 * gray[i + width] +
-            gray[i + width + 1]
-          const magnitude = Math.hypot(gx, gy)
-          edges[i] = magnitude > EDGE_THRESHOLD ? 255 : 0
-        }
-      }
-
-      canvas.width = width
-      canvas.height = height
-      const out = canvas.getContext('2d')
-      if (!out) {
-        reject(new Error('Canvas context unavailable'))
-        return
-      }
-
-      const outData = out.createImageData(width, height)
-      for (let i = 0; i < width * height; i++) {
-        const idx = i * 4
-        if (edges[i]) {
-          outData.data[idx] = 59
-          outData.data[idx + 1] = 130
-          outData.data[idx + 2] = 246
-          outData.data[idx + 3] = EDGE_ALPHA
-        }
-      }
-      out.putImageData(outData, 0, 0)
-      resolve()
-    }
-    img.onerror = () => reject(new Error('Failed to load image'))
-    img.src = imageSrc
-  })
-}
-
-function stopScan() {
-  if (beamTimer) {
-    clearInterval(beamTimer)
-    beamTimer = null
-  }
-  if (generateTimer) {
-    clearInterval(generateTimer)
-    generateTimer = null
-  }
-  if (potentialTimer) {
-    clearInterval(potentialTimer)
-    potentialTimer = null
-  }
-}
-
-let finished = false
+const scanMode = computed(() => (isPreview.value ? 'preview' : 'live'))
 
 function finishAndRedirect() {
-  if (finished || apiFailed.value) return
-  finished = true
-  stopScan()
-  generatePercent.value = 100
-  setTimeout(() => router.push(`/dashboard/${generationId.value}`), SCAN_REDIRECT_DELAY)
+  const target = isPreview.value ? '/unlock' : `/dashboard/${generationId.value}`
+  setTimeout(() => router.push(target), SCAN_REDIRECT_DELAY)
 }
 
-function startScan() {
-  const interval = 30
-  const beamStep = (100 / BEAM_DURATION) * interval
-  const generateStep = (HOLD_AT / GENERATE_DURATION) * interval
-
-  beamTimer = setInterval(() => {
-    if (apiFailed.value) return
-    beamProgress.value += beamStep
-    if (beamProgress.value >= 100) beamProgress.value = 0
-  }, interval)
-
-  generateTimer = setInterval(() => {
-    if (apiFailed.value) {
-      stopScan()
-      return
-    }
-
-    if (generatePercent.value < HOLD_AT) {
-      generatePercent.value = Math.min(HOLD_AT, generatePercent.value + generateStep)
-    }
-
-    if (apiSettled.value) {
-      finishAndRedirect()
-    }
-  }, interval)
-
-  const potentialRange = potentialTarget
-  if (potentialRange > 0) {
-    const potentialStep = (potentialRange / POTENTIAL_DURATION) * interval
-    potentialTimer = setInterval(() => {
-      potential.value = Math.min(potentialTarget, potential.value + potentialStep)
-      if (potential.value >= potentialTarget && potentialTimer) {
-        potential.value = potentialTarget
-        clearInterval(potentialTimer)
-        potentialTimer = null
-      }
-    }, interval)
-  }
-}
+const {
+  beamProgress,
+  generatePercent,
+  displayPercent,
+  edgeCanvas,
+  edgesReady,
+  potential,
+  start: startScan,
+  stop: stopScan,
+  finish,
+  prepareEdges,
+} = useSpaceScanAnimation({
+  mode: scanMode,
+  failed: apiFailed,
+  settled: apiSettled,
+  onComplete: finishAndRedirect,
+})
 
 async function pollUntilDone() {
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt++) {
@@ -275,32 +148,22 @@ async function waitForGeneration() {
 }
 
 onMounted(async () => {
-  if (edgeCanvas.value && scanImage.value) {
-    try {
-      await buildEdgeMap(scanImage.value, edgeCanvas.value)
-      edgesReady.value = true
-    } catch {
-      edgesReady.value = false
-    }
-  }
-
+  await prepareEdges(scanImage.value)
   startScan()
+
+  if (isPreview.value) return
 
   try {
     const done = await waitForGeneration()
     if (!done) return
     apiSettled.value = true
-    finishAndRedirect()
+    finish()
   } catch (error) {
     apiFailed.value = true
     stopScan()
     errorMessage.value = apiErrorMessage(error, 'Generation failed')
     await fetchUser()
   }
-})
-
-onUnmounted(() => {
-  stopScan()
 })
 </script>
 
@@ -363,7 +226,14 @@ onUnmounted(() => {
         <p class="text-sm font-medium text-red-700 sm:text-base">{{ errorMessage }}</p>
         <div class="mt-4 flex justify-center gap-3">
           <NuxtLink
-            v-if="isRefine"
+            v-if="isPreview"
+            to="/design"
+            class="btn-outline rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            Choose style
+          </NuxtLink>
+          <NuxtLink
+            v-else-if="isRefine"
             :to="`/dashboard/${generationId}`"
             class="btn-outline rounded-lg px-4 py-2 text-sm font-medium"
           >
@@ -376,8 +246,11 @@ onUnmounted(() => {
           >
             Choose style
           </NuxtLink>
-          <NuxtLink to="/dashboard/new" class="btn-primary rounded-lg px-4 py-2 text-sm font-medium">
-            New photo
+          <NuxtLink
+            :to="isPreview ? '/' : '/dashboard/new'"
+            class="btn-primary rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            {{ isPreview ? 'Upload photo' : 'New photo' }}
           </NuxtLink>
         </div>
       </div>
