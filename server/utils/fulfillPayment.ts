@@ -1,3 +1,4 @@
+import type { H3Event } from 'h3'
 import type { StripeCheckoutSession } from './stripe'
 import type { PaymentStatus } from '../../types/payment'
 import { formatUsd, getPlan, isPlanId } from '../../utils/plans'
@@ -15,6 +16,7 @@ interface PaymentRow {
   status: PaymentStatus
   credits_granted_at: string | null
   admin_notified_at: string | null
+  customer_notified_at: string | null
   receipt_url: string | null
   created_at: string
   updated_at: string
@@ -116,6 +118,39 @@ async function ensurePaymentRow(session: StripeCheckoutSession): Promise<Payment
   return data as PaymentRow
 }
 
+async function notifyCustomer(
+  payment: PaymentRow,
+  options: { accountExists: boolean; siteUrl: string },
+) {
+  if (payment.customer_notified_at) return
+
+  const siteUrl = options.siteUrl.replace(/\/$/, '')
+  if (!siteUrl) {
+    console.error('NUXT_PUBLIC_SITE_URL is not set; skipping payment success email')
+    return
+  }
+
+  const plan = getPlan(payment.plan_id)
+  const sent = await sendPaymentSuccessCustomerEmail({
+    to: payment.email,
+    planTitle: plan?.title || payment.plan_id,
+    credits: payment.credits,
+    amountLabel: formatUsd(payment.amount_cents, payment.currency),
+    accountExists: options.accountExists,
+    claimUrl: `${siteUrl}/checkout/complete?session_id=${encodeURIComponent(payment.stripe_checkout_session_id)}`,
+    loginUrl: `${siteUrl}/login?email=${encodeURIComponent(payment.email)}&paid=1`,
+  })
+
+  if (!sent) return
+
+  const admin = createAdminClient()
+  await admin
+    .from('payments')
+    .update({ customer_notified_at: new Date().toISOString() })
+    .eq('id', payment.id)
+    .is('customer_notified_at', null)
+}
+
 async function notifyAdmin(payment: PaymentRow) {
   if (payment.admin_notified_at) return
 
@@ -125,7 +160,6 @@ async function notifyAdmin(payment: PaymentRow) {
     planTitle: plan?.title || payment.plan_id,
     credits: payment.credits,
     amountLabel: formatUsd(payment.amount_cents, payment.currency),
-    sessionId: payment.stripe_checkout_session_id,
   })
 
   if (!sent) return
@@ -152,7 +186,10 @@ async function toView(payment: PaymentRow, accountExists: boolean): Promise<Fulf
   }
 }
 
-export async function fulfillCheckoutSession(sessionId: string): Promise<FulfilledPayment> {
+export async function fulfillCheckoutSession(
+  sessionId: string,
+  event?: H3Event,
+): Promise<FulfilledPayment> {
   const session = await retrievePaidCheckoutSession(sessionId)
   const payment = await ensurePaymentRow(session)
   const email = payment.email
@@ -171,9 +208,14 @@ export async function fulfillCheckoutSession(sessionId: string): Promise<Fulfill
     }
   }
 
-  await notifyAdmin(payment)
-
   const latest = (await loadPayment(session.id)) || payment
   const accountExists = Boolean(latest.user_id || existingUserId || (await findProfileIdByEmail(email)))
+  const siteUrl = event
+    ? getSiteUrl(event)
+    : String(useRuntimeConfig().public.siteUrl || '').replace(/\/$/, '')
+
+  await notifyCustomer(latest, { accountExists, siteUrl })
+  await notifyAdmin(latest)
+
   return toView(latest, accountExists)
 }

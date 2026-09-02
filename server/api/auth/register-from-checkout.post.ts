@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const fulfilled = await fulfillCheckoutSession(sessionId)
+  const fulfilled = await fulfillCheckoutSession(sessionId, event)
   if (fulfilled.accountExists) {
     throw createError({
       statusCode: 409,

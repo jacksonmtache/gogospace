@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const fulfilled = await fulfillCheckoutSession(sessionId)
+  const fulfilled = await fulfillCheckoutSession(sessionId, event)
   const view: CheckoutSessionView = {
     email: fulfilled.email,
     credits: fulfilled.credits,

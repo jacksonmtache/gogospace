@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   if (stripeEvent.type === 'checkout.session.completed') {
     const session = stripeEvent.data.object as { id?: string; payment_status?: string | null }
     if (session.id && session.payment_status === 'paid') {
-      await fulfillCheckoutSession(session.id)
+      await fulfillCheckoutSession(session.id, event)
     }
   }
 
