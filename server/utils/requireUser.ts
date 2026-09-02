@@ -52,7 +52,7 @@ export async function loadAuthUser(accessToken: string, user: User): Promise<Aut
   }
 
   const admin = createAdminClient()
-  const email = user.email ?? ''
+  const email = (user.email ?? '').trim().toLowerCase()
   const { data: created, error: insertError } = await admin
     .from('profiles')
     .insert({ id: user.id, email, credits: 0 })

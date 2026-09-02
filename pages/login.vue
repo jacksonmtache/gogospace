@@ -13,14 +13,20 @@ import { FetchError } from 'ofetch'
 const { login } = useAuth()
 const route = useRoute()
 
-const email = ref('')
+const email = ref(String(route.query.email || '').trim())
 const password = ref('')
 const rememberMe = ref(false)
 const errorMessage = ref('')
 const pending = ref(false)
-const successMessage = computed(() =>
-  route.query.reset === 'success' ? 'Password updated. Log in with your new password.' : '',
-)
+const successMessage = computed(() => {
+  if (route.query.paid === '1') {
+    return 'Credits were added to your account. Log in to continue.'
+  }
+  if (route.query.reset === 'success') {
+    return 'Password updated. Log in with your new password.'
+  }
+  return ''
+})
 
 function toLoginError(error: unknown) {
   if (error instanceof FetchError) {

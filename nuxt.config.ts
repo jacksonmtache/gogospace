@@ -10,6 +10,9 @@ export default defineNuxtConfig({
     openrouterApiKey: '',
     resendApiKey: '',
     resendFromEmail: 'GoGoSpace <noreply@gogospace.com>',
+    stripeSecretKey: '',
+    stripeWebhookSecret: '',
+    adminEmail: 'hello@gogospace.com',
     public: {
       siteUrl: '',
       appEnv: process.env.NODE_ENV === 'production' ? 'production' : 'test',

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { PlanId } from '~/utils/plans'
+
 definePageMeta({
   layout: 'default',
 })
@@ -7,51 +9,30 @@ useHead({
   title: 'Unlock Your Designs — GoGoSpace',
 })
 
-type PlanId = 'basic' | 'popular' | 'premium'
-
-interface PricingPlan {
-  id: PlanId
-  title: string
-  description: string
-  price: string
-  priceValue: number
-  badge?: string
-}
-
 const { session } = usePreviewSession()
+const { startCheckout } = useCheckout()
 const selectedPlan = ref<PlanId>('popular')
 const previewStyleName = ref('')
+const checkoutPending = ref(false)
+const checkoutError = ref('')
 
 onMounted(() => {
   previewStyleName.value = getDesignStyle(session.value?.style || '')?.name || ''
 })
 
-const plans: PricingPlan[] = [
-  {
-    id: 'basic',
-    title: '1 design',
-    description: 'One-time purchase.',
-    price: 'US$3.99',
-    priceValue: 3.99,
-  },
-  {
-    id: 'popular',
-    title: '20 designs / refinements',
-    description: 'Compare different styles and refine your designs.',
-    price: 'US$9.99',
-    priceValue: 9.99,
-    badge: 'Most popular',
-  },
-  {
-    id: 'premium',
-    title: '60 designs / refinements',
-    description: 'Explore every possibility and refine until it feels right.',
-    price: 'US$19.99',
-    priceValue: 19.99,
-  },
-]
+const plans = CREDIT_PLANS
+const activePlan = computed(() => getPlan(selectedPlan.value)!)
 
-const activePlan = computed(() => plans.find((plan) => plan.id === selectedPlan.value)!)
+async function onUnlock() {
+  checkoutError.value = ''
+  checkoutPending.value = true
+  try {
+    await startCheckout(selectedPlan.value, 'unlock')
+  } catch (error: unknown) {
+    checkoutError.value = apiErrorMessage(error, 'Unable to start checkout')
+    checkoutPending.value = false
+  }
+}
 </script>
 
 <template>
@@ -142,9 +123,15 @@ const activePlan = computed(() => plans.find((plan) => plan.id === selectedPlan.
         </button>
       </div>
 
+      <p v-if="checkoutError" class="mt-4 text-center text-sm text-red-600" role="alert">
+        {{ checkoutError }}
+      </p>
+
       <button
         type="button"
-        class="btn-primary mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold sm:mt-8 sm:py-4 sm:text-lg"
+        class="btn-primary mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-70 sm:mt-8 sm:py-4 sm:text-lg"
+        :disabled="checkoutPending"
+        @click="onUnlock"
       >
         <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path
@@ -153,7 +140,7 @@ const activePlan = computed(() => plans.find((plan) => plan.id === selectedPlan.
             d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
           />
         </svg>
-        Unlock designs · {{ activePlan.price }}
+        {{ checkoutPending ? 'Redirecting to Stripe…' : `Unlock designs · ${activePlan.price}` }}
       </button>
 
       <div class="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-4">

@@ -67,5 +67,26 @@ export function useAuth() {
     })
   }
 
-  return { user, ready, fetchUser, login, logout, requestPasswordReset, resetPassword, changePassword }
+  async function registerFromCheckout(sessionId: string, password: string) {
+    const data = await $fetch<{ user: AuthUser }>('/api/auth/register-from-checkout', {
+      method: 'POST',
+      credentials: 'include',
+      body: { sessionId, password },
+    })
+    user.value = data.user
+    ready.value = true
+    return data.user
+  }
+
+  return {
+    user,
+    ready,
+    fetchUser,
+    login,
+    logout,
+    requestPasswordReset,
+    resetPassword,
+    changePassword,
+    registerFromCheckout,
+  }
 }

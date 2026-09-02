@@ -87,3 +87,80 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
     })
   }
 }
+
+export async function sendPaymentSuccessAdminEmail(details: {
+  payerEmail: string
+  planTitle: string
+  credits: number
+  amountLabel: string
+  sessionId: string
+}) {
+  const apiKey = String(useRuntimeConfig().resendApiKey || '')
+  if (!apiKey) {
+    console.error('NUXT_RESEND_API_KEY is not set; skipping payment admin email')
+    return false
+  }
+
+  const to = String(useRuntimeConfig().adminEmail || '').trim() || 'hello@gogospace.com'
+  const payerEmail = escapeHtml(details.payerEmail)
+  const planTitle = escapeHtml(details.planTitle)
+  const amountLabel = escapeHtml(details.amountLabel)
+  const sessionId = escapeHtml(details.sessionId)
+  const credits = String(details.credits)
+
+  try {
+    const { error } = await new Resend(apiKey).emails.send({
+      from: getFromAddress(),
+      to,
+      subject: `GoGoSpace payment received — ${details.amountLabel}`,
+      text: [
+        'GoGoSpace payment received',
+        '',
+        `Payer: ${details.payerEmail}`,
+        `Plan: ${details.planTitle}`,
+        `Credits: ${details.credits}`,
+        `Amount: ${details.amountLabel}`,
+        `Stripe session: ${details.sessionId}`,
+      ].join('\n'),
+      html: `<!DOCTYPE html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#f7f4ef;font-family:Inter,Arial,sans-serif;color:#1c1917;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f4ef;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border:1px solid #e8e0d6;border-radius:16px;padding:32px;">
+            <tr>
+              <td>
+                <p style="margin:0 0 8px;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#044db4;font-weight:600;">GoGoSpace</p>
+                <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;">Payment received</h1>
+                <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#57534e;">
+                  A Stripe checkout payment completed successfully.
+                </p>
+                <p style="margin:0;font-size:15px;line-height:1.7;color:#1c1917;">
+                  <strong>Payer:</strong> ${payerEmail}<br />
+                  <strong>Plan:</strong> ${planTitle}<br />
+                  <strong>Credits:</strong> ${credits}<br />
+                  <strong>Amount:</strong> ${amountLabel}<br />
+                  <strong>Stripe session:</strong> ${sessionId}
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`,
+    })
+
+    if (error) {
+      console.error('Resend failed to send payment admin email', error)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error('Resend failed to send payment admin email', error)
+    return false
+  }
+}
