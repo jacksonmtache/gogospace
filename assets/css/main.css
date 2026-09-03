@@ -346,16 +346,18 @@ body {
 
 .hero-phrase-wrap {
   display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  width: 7.2em;
-  text-align: center;
-  vertical-align: middle;
+  justify-content: flex-start;
+  align-items: baseline;
+  width: auto;
+  text-align: left;
+  vertical-align: baseline;
 }
 
 @media (min-width: 640px) {
   .hero-phrase-wrap {
     width: 11em;
+    justify-content: center;
+    text-align: center;
   }
 }
 

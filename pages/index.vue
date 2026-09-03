@@ -421,7 +421,7 @@ onUnmounted(() => {
       <div class="grain absolute inset-0" />
       <div class="relative mx-auto max-w-5xl px-4 pb-12 pt-10 text-center sm:px-6 sm:pb-16 sm:pt-14 lg:pt-20">
         <h1
-          class="animate-fade-up font-display flex flex-nowrap items-center justify-center gap-x-[0.25em] text-[clamp(1.5rem,8vw,1.875rem)] font-semibold leading-tight tracking-tight sm:flex-wrap sm:text-5xl md:text-6xl lg:text-7xl"
+          class="animate-fade-up font-display flex flex-wrap items-baseline justify-center gap-x-[0.3em] text-3xl font-semibold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
         >
           <span>Upload a</span>
           <span class="hero-phrase-wrap">
