@@ -15,14 +15,29 @@ const editingAccount = computed(() => route.query.edit === 'account')
 const editingCredits = computed(() => route.query.edit === 'credits')
 const editingHistory = computed(() => route.query.edit === 'history')
 const checkoutSuccess = computed(() => route.query.checkout === 'success')
+const showBackToSettings = computed(
+  () => editingAccount.value || editingCredits.value || editingHistory.value,
+)
+
+const pageHeading = computed(() => {
+  if (editingAccount.value) return 'Edit account'
+  if (editingCredits.value) return 'Buy credits'
+  if (editingHistory.value) return 'Payment history'
+  return 'Payments & Settings'
+})
+
+const pageDescription = computed(() => {
+  if (editingAccount.value) return 'View your email and change your password.'
+  if (editingCredits.value) {
+    const credits = user.value?.credits ?? 0
+    return `You have ${credits} credit${credits === 1 ? '' : 's'}. Choose a pack to top up.`
+  }
+  if (editingHistory.value) return 'Past purchases and receipts for this account.'
+  return 'Manage your billing and account preferences.'
+})
 
 useHead({
-  title: computed(() => {
-    if (editingAccount.value) return 'Edit account — GoGoSpace'
-    if (editingCredits.value) return 'Buy credits — GoGoSpace'
-    if (editingHistory.value) return 'Payment history — GoGoSpace'
-    return 'Payments & Settings — GoGoSpace'
-  }),
+  title: pageHeading,
 })
 
 const currentPassword = ref('')
@@ -177,24 +192,23 @@ onMounted(async () => {
 
 <template>
   <div class="mx-auto max-w-2xl">
-    <template v-if="editingAccount">
-      <header>
-        <button
-          type="button"
-          class="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-base"
-          @click="closeSection"
-        >
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-          Back to settings
-        </button>
-        <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Edit account</h1>
-        <p class="mt-1 text-base text-muted-foreground sm:text-lg">
-          View your email and change your password.
-        </p>
-      </header>
+    <header>
+      <button
+        v-if="showBackToSettings"
+        type="button"
+        class="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-base"
+        @click="closeSection"
+      >
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+        </svg>
+        Back to settings
+      </button>
+      <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">{{ pageHeading }}</h1>
+      <p class="mt-1 text-base text-muted-foreground sm:text-lg">{{ pageDescription }}</p>
+    </header>
 
+    <template v-if="editingAccount">
       <div class="mt-8 space-y-4 sm:mt-10">
         <div class="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
           <h2 class="font-semibold text-foreground">Email</h2>
@@ -286,23 +300,6 @@ onMounted(async () => {
     </template>
 
     <template v-else-if="editingCredits">
-      <header>
-        <button
-          type="button"
-          class="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-base"
-          @click="closeSection"
-        >
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-          Back to settings
-        </button>
-        <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Buy credits</h1>
-        <p class="mt-1 text-base text-muted-foreground sm:text-lg">
-          You have {{ user?.credits ?? 0 }} credit{{ (user?.credits ?? 0) === 1 ? '' : 's' }}. Choose a pack to top up.
-        </p>
-      </header>
-
       <p
         v-if="checkoutSuccess"
         class="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 sm:text-base"
@@ -386,23 +383,6 @@ onMounted(async () => {
     </template>
 
     <template v-else-if="editingHistory">
-      <header>
-        <button
-          type="button"
-          class="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-base"
-          @click="closeSection"
-        >
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-          Back to settings
-        </button>
-        <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Payment history</h1>
-        <p class="mt-1 text-base text-muted-foreground sm:text-lg">
-          Past purchases and receipts for this account.
-        </p>
-      </header>
-
       <p v-if="historyPending" class="mt-8 text-sm text-muted-foreground sm:text-base">
         Loading payment history…
       </p>
@@ -452,13 +432,6 @@ onMounted(async () => {
     </template>
 
     <template v-else>
-      <header>
-        <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Payments & Settings</h1>
-        <p class="mt-1 text-base text-muted-foreground sm:text-lg">
-          Manage your billing and account preferences.
-        </p>
-      </header>
-
       <p
         v-if="checkoutSuccess"
         class="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 sm:text-base"

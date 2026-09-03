@@ -5,7 +5,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Log in — GoGoSpace',
+  title: 'Log in',
 })
 
 import { FetchError } from 'ofetch'

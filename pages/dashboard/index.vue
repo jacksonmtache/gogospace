@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Past Projects — GoGoSpace',
+  title: 'Past Projects',
 })
 
 const { data, error, pending } = await useFetch<{ generations: Generation[] }>('/api/generations')

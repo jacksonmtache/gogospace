@@ -28,7 +28,7 @@ const generation = computed(() => data.value?.generation)
 const styleName = computed(() => getDesignStyle(generation.value?.style || '')?.name || 'Design')
 
 useHead({
-  title: computed(() => `${styleName.value} — GoGoSpace`),
+  title: computed(() => styleName.value),
 })
 
 if (error.value || !generation.value) {

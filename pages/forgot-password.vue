@@ -5,7 +5,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Forgot Password — GoGoSpace',
+  title: 'Forgot Password',
 })
 
 const { requestPasswordReset } = useAuth()

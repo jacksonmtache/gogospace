@@ -6,7 +6,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Unlock Your Designs — GoGoSpace',
+  title: 'Unlock Your Designs',
 })
 
 const { session } = usePreviewSession()

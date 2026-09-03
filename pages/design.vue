@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Choose Style — GoGoSpace',
+  title: 'Choose Style',
 })
 
 const route = useRoute()

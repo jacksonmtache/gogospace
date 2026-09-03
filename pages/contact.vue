@@ -6,7 +6,7 @@ definePageMeta({
 const { scrollToSection } = useSiteNavigation()
 
 useHead({
-  title: 'Contact — GoGoSpace',
+  title: 'Contact',
 })
 
 const contactChannels = [

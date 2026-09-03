@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'New Project — GoGoSpace',
+  title: 'New Project',
 })
 
 const { user } = useAuth()

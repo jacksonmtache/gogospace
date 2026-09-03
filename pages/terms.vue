@@ -4,7 +4,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Terms of Service — GoGoSpace',
+  title: 'Terms of Service',
 })
 </script>
 

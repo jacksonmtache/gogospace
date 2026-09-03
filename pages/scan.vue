@@ -8,7 +8,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Space Scan — GoGoSpace',
+  title: 'Space Scan',
 })
 
 const POLL_MS = 2000

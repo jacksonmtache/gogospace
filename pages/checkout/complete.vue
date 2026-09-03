@@ -6,7 +6,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Complete your purchase — GoGoSpace',
+  title: 'Complete your purchase',
 })
 
 const route = useRoute()

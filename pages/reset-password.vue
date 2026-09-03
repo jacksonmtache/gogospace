@@ -4,7 +4,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Reset Password — GoGoSpace',
+  title: 'Reset Password',
 })
 
 const route = useRoute()

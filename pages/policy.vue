@@ -4,7 +4,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Privacy Policy — GoGoSpace',
+  title: 'Privacy Policy',
 })
 </script>
 
